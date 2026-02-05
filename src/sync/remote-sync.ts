@@ -77,6 +77,7 @@ export class RemoteSync {
 
   /**
    * Sync a single observation to the remote server.
+   * Uses /api/sync/push endpoint with observations array wrapper.
    */
   async syncObservation(observation: Record<string, unknown>): Promise<SyncResult> {
     if (!this.config || !this.config.syncEnabled) {
@@ -84,13 +85,14 @@ export class RemoteSync {
     }
 
     try {
-      const response = await fetch(`${this.config.serverUrl}/api/sync/observation`, {
+      // Server expects observations wrapped in an array
+      const response = await fetch(`${this.config.serverUrl}/api/sync/push`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': this.config.apiKey
         },
-        body: JSON.stringify(observation),
+        body: JSON.stringify({ observations: [observation] }),
         signal: AbortSignal.timeout(30000) // 30s timeout
       });
 
@@ -110,6 +112,7 @@ export class RemoteSync {
 
   /**
    * Sync multiple observations in batch.
+   * Uses /api/sync/push endpoint which handles multiple observations.
    */
   async syncBatch(observations: Record<string, unknown>[]): Promise<{ synced: number; failed: number }> {
     if (!this.config || !this.config.syncEnabled) {
@@ -117,7 +120,7 @@ export class RemoteSync {
     }
 
     try {
-      const response = await fetch(`${this.config.serverUrl}/api/sync/batch`, {
+      const response = await fetch(`${this.config.serverUrl}/api/sync/push`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -137,8 +140,9 @@ export class RemoteSync {
         return { synced, failed: observations.length - synced };
       }
 
-      const result = await response.json() as { synced?: number };
-      return { synced: result.synced || observations.length, failed: 0 };
+      const result = await response.json() as { observations?: { inserted: number; updated: number } };
+      const totalSynced = (result.observations?.inserted || 0) + (result.observations?.updated || 0);
+      return { synced: totalSynced || observations.length, failed: 0 };
     } catch (err) {
       // Queue all for retry
       this.pendingQueue.push(...observations);
