@@ -144,10 +144,13 @@ async function setup(): Promise<void> {
   console.log(`Config saved to: ${CONFIG_PATH}`);
   console.log('');
   console.log('Next steps:');
-  console.log('  1. Add plugin to Claude Code:');
+  console.log('');
+  console.log('  If installed via marketplace, restart Claude Code to load the plugin.');
+  console.log('');
+  console.log('  If installed manually, add plugin to Claude Code:');
   console.log(`     /plugin add ${PLUGIN_ROOT}`);
   console.log('');
-  console.log('  2. (Optional) Start sync service:');
+  console.log('  (Optional) Start sync service:');
   console.log('     bun run sync');
   console.log('');
 }

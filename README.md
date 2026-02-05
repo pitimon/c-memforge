@@ -21,17 +21,22 @@ MemForge Client is a companion plugin that connects to the [MemForge](https://me
 
 ## Quick Start
 
-### 1. Clone and Install
+### 1. Install Plugin
 
-```bash
-git clone https://github.com/pitimon/c-memforge.git
-cd c-memforge
-bun install
+```
+/plugin marketplace add pitimon/c-memforge
 ```
 
-### 2. Configure
+### 2. Configure API Key
+
+After installation, run the setup script from the plugin directory:
 
 ```bash
+# Find the installed plugin directory
+ls ~/.claude/plugins/marketplaces/ | grep -i memforge
+
+# Then run setup (adjust path as needed)
+cd ~/.claude/plugins/marketplaces/pitimon-c-memforge  # or similar
 bun run setup
 ```
 
@@ -39,18 +44,25 @@ You'll be prompted for:
 - **API Key** - Get yours at https://memclaude.thaicloud.ai/settings
 - **Server URL** - Default: `https://memclaude.thaicloud.ai`
 
-### 3. Add to Claude Code
-
-```
-/plugin add /path/to/c-memforge
-```
-
-### 4. (Optional) Start Sync Service
+### 3. (Optional) Start Sync Service
 
 To sync your local observations to the remote server:
 
 ```bash
+cd ~/.claude/plugins/marketplaces/pitimon-c-memforge  # or similar
 bun run sync
+```
+
+## Manual Installation
+
+If you prefer manual installation:
+
+```bash
+git clone https://github.com/pitimon/c-memforge.git
+cd c-memforge
+bun install
+bun run setup
+/plugin add /path/to/c-memforge
 ```
 
 ## MCP Tools
