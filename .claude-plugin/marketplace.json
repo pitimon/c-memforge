@@ -1,0 +1,13 @@
+{
+  "name": "pitimon/c-memforge",
+  "displayName": "MemForge Client",
+  "description": "Persistent semantic memory for Claude Code - SaaS client",
+  "plugins": [
+    {
+      "name": "memforge-client",
+      "description": "MemForge - Persistent memory for Claude Code (SaaS client)",
+      "version": "1.0.0",
+      "path": "."
+    }
+  ]
+}
