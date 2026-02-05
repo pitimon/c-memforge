@@ -13,23 +13,63 @@ MemForge Client is a companion plugin that connects to the [MemForge](https://me
 
 ## Prerequisites
 
-**Required**: Install the base claude-mem plugin first:
+1. **Bun runtime** - Install from https://bun.sh:
+   ```bash
+   curl -fsSL https://bun.sh/install | bash
+   ```
 
-```
-/plugin marketplace add thedotmack/claude-mem
-```
+2. **claude-mem plugin** - Install the base plugin first:
+   ```
+   /plugin marketplace add thedotmack/claude-mem
+   ```
 
 ## Quick Start
 
-### 1. Install Plugin
+### Option 1: Claude Code CLI (Recommended)
 
-```
-/plugin marketplace add pitimon/c-memforge [your-api-key]
+```bash
+# Step 1: Add the marketplace
+claude plugin marketplace add pitimon/c-memforge
+
+# Step 2: Install the plugin
+claude plugin install memforge-client@pitimon-c-memforge
+
+# Step 3: Configure API key
+cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
+bun run setup "your-api-key"
 ```
 
 Get your API key at: https://memclaude.thaicloud.ai/settings
 
-### 2. (Optional) Start Sync Service
+### Option 2: Inside Claude Code
+
+```
+/plugin marketplace add pitimon/c-memforge
+```
+
+Then configure in terminal:
+
+```bash
+cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
+bun install
+bun run setup "your-api-key"
+```
+
+### Option 3: Manual Installation
+
+```bash
+git clone https://github.com/pitimon/c-memforge.git
+cd c-memforge
+bun install
+bun run setup
+```
+
+Then add to Claude Code:
+```
+/plugin add /path/to/c-memforge
+```
+
+## Start Sync Service (Optional)
 
 To sync your local observations to the remote server:
 
@@ -38,32 +78,11 @@ cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
 bun run sync
 ```
 
-### Alternative: Interactive Setup
-
-If you prefer interactive configuration:
-
-```
-/plugin marketplace add pitimon/c-memforge
-```
-
-Then run setup manually:
-
-```bash
-cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
-bun run setup
-```
-
-## Manual Installation
-
-If you prefer manual installation:
-
-```bash
-git clone https://github.com/pitimon/c-memforge.git
-cd c-memforge
-bun install
-bun run setup
-/plugin add /path/to/c-memforge
-```
+The sync service:
+- Polls local database every 2 seconds
+- Syncs new observations to remote server
+- Retries failed syncs automatically
+- Runs in read-only mode (no conflicts with claude-mem)
 
 ## MCP Tools
 
@@ -147,14 +166,14 @@ To use your own MemForge server:
 ┌─────────────────────┴───────────────────────────────────┐
 │ memforge-client (this plugin)                           │
 │ DatabaseWatcher → polls new observations                │
-│ RemoteSync → POST to server                             │
+│ RemoteSync → POST /api/sync/push                        │
 │ PendingQueue → retry failed syncs                       │
 └─────────────────────┬───────────────────────────────────┘
                       │ HTTPS + X-API-Key
                       ▼
 ┌─────────────────────────────────────────────────────────┐
 │ memclaude.thaicloud.ai                                  │
-│ POST /api/sync/observation → receive & store            │
+│ POST /api/sync/push → receive & store                   │
 │ GET /api/search/* → semantic search                     │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -163,7 +182,7 @@ To use your own MemForge server:
 
 | Script | Description |
 |--------|-------------|
-| `bun run setup` | Interactive configuration |
+| `bun run setup [api-key]` | Configure API key (interactive or quick) |
 | `bun run sync` | Start database watcher |
 | `bun run check` | Check dependencies |
 | `bun run mcp` | Run MCP server directly |
@@ -181,16 +200,37 @@ Install the base plugin first:
 /plugin marketplace add thedotmack/claude-mem
 ```
 
+### "bun: command not found"
+
+Install Bun runtime:
+```bash
+curl -fsSL https://bun.sh/install | bash
+source ~/.bashrc  # or restart terminal
+```
+
 ### Sync not working
 
-1. Check if sync is enabled: `bun run check`
+1. Check if sync is enabled: `cat config.local.json`
 2. Verify API key is correct
 3. Check server connectivity: `curl https://memclaude.thaicloud.ai/health`
-4. Review pending queue in `.sync-queue.json`
+4. Check sync logs when running `bun run sync`
 
 ### Database locked
 
 The sync service uses read-only mode and should not conflict with claude-mem. If issues persist, restart the sync service.
+
+## Updating
+
+To update to the latest version:
+
+```bash
+claude plugin marketplace update pitimon-c-memforge
+```
+
+Or inside Claude Code:
+```
+/plugin marketplace update pitimon-c-memforge
+```
 
 ## Development
 
