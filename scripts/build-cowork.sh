@@ -11,7 +11,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(dirname "$SCRIPT_DIR")"
-OUTPUT_DIR="${PLUGIN_ROOT}"
+OUTPUT_DIR="${HOME}/Downloads"
 OUTPUT_FILE="memforge-client-cowork.zip"
 
 # Default Cowork API key (embedded in package)
