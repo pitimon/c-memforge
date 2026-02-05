@@ -2,7 +2,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-**Persistent semantic memory for Claude Code** - powered by the MemForge SaaS platform.
+**Persistent semantic memory for Claude** - powered by the MemForge SaaS platform.
 
 MemForge Client is a companion plugin that connects to the [MemForge](https://memclaude.thaicloud.ai) server, providing:
 
@@ -11,7 +11,18 @@ MemForge Client is a companion plugin that connects to the [MemForge](https://me
 - **Hybrid search** combining vector embeddings and full-text search
 - **Knowledge graph** with entity lookup and triplet queries
 
-## Prerequisites
+## Platforms
+
+| Platform | Installation | Sync Support |
+|----------|--------------|--------------|
+| **Claude Code** | Marketplace / Manual | ✅ Full sync |
+| **Claude Cowork** | ZIP upload | ❌ Search only |
+
+---
+
+## Claude Code Installation
+
+### Prerequisites
 
 1. **Bun runtime** - Install from https://bun.sh:
    ```bash
@@ -22,8 +33,6 @@ MemForge Client is a companion plugin that connects to the [MemForge](https://me
    ```
    /plugin marketplace add thedotmack/claude-mem
    ```
-
-## Quick Start
 
 ### Option 1: Claude Code CLI (Recommended)
 
@@ -69,7 +78,7 @@ Then add to Claude Code:
 /plugin add /path/to/c-memforge
 ```
 
-## Start Sync Service (Optional)
+### Start Sync Service (Optional)
 
 To sync your local observations to the remote server:
 
@@ -84,16 +93,47 @@ The sync service:
 - Retries failed syncs automatically
 - Runs in read-only mode (no conflicts with claude-mem)
 
+---
+
+## Claude Cowork Installation
+
+For Claude Cowork (web-based), use the pre-configured ZIP package:
+
+### Option 1: Pre-built Package
+
+1. Download `memforge-client-cowork.zip` from releases
+2. Open Claude Cowork → Plugins → Upload local plugin
+3. Drag & drop the ZIP file
+4. Plugin is ready (pre-configured API key)
+
+### Option 2: Build Custom Package
+
+```bash
+# Generate package with custom API key
+./scripts/build-cowork.sh "your-api-key"
+
+# Output: memforge-client-cowork.zip
+```
+
+### Cowork Limitations
+
+- ❌ No sync service (no local database access)
+- ❌ No claude-mem dependency
+- ✅ All 14 MCP search/query tools work
+- ✅ Pre-configured API key (no setup needed)
+
+---
+
 ## MCP Tools
 
 ### Search Tools
 
-| Tool | Description |
-|------|-------------|
-| `mem_semantic_search` | Hybrid search with mode selection (hybrid/fts/vector) |
-| `mem_hybrid_search` | Hybrid search with RRF ranking |
-| `mem_vector_search` | Pure vector/embedding search |
-| `mem_search` | Full-text search with filters |
+| Tool | Description | Recommendation |
+|------|-------------|----------------|
+| `mem_search` | Full-text search with filters | ⭐ Most reliable |
+| `mem_hybrid_search` | Hybrid search with RRF ranking | Use `vector_weight=0.2` |
+| `mem_semantic_search` | Hybrid with mode selection | Flexible |
+| `mem_vector_search` | Pure vector/embedding search | Use with caution |
 
 ### Observation Tools
 
@@ -119,6 +159,8 @@ The sync service:
 | `mem_snapshot_list` | List all snapshots |
 | `mem_snapshot_restore` | Restore from snapshot |
 | `mem_snapshot_delete` | Delete a snapshot |
+
+---
 
 ## Configuration
 
@@ -153,7 +195,11 @@ To use your own MemForge server:
 }
 ```
 
-## Sync Architecture
+---
+
+## Architecture
+
+### Claude Code (with Sync)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -178,6 +224,23 @@ To use your own MemForge server:
 └─────────────────────────────────────────────────────────┘
 ```
 
+### Claude Cowork (Search Only)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Claude Cowork (browser)                                 │
+│ memforge-client plugin (ZIP)                            │
+└─────────────────────┬───────────────────────────────────┘
+                      │ HTTPS + X-API-Key
+                      ▼
+┌─────────────────────────────────────────────────────────┐
+│ memclaude.thaicloud.ai                                  │
+│ GET /api/search/* → semantic search                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Scripts
 
 | Script | Description |
@@ -186,6 +249,8 @@ To use your own MemForge server:
 | `bun run sync` | Start database watcher |
 | `bun run check` | Check dependencies |
 | `bun run mcp` | Run MCP server directly |
+
+---
 
 ## Troubleshooting
 
@@ -219,9 +284,11 @@ source ~/.bashrc  # or restart terminal
 
 The sync service uses read-only mode and should not conflict with claude-mem. If issues persist, restart the sync service.
 
+---
+
 ## Updating
 
-To update to the latest version:
+### Claude Code
 
 ```bash
 claude plugin marketplace update pitimon-c-memforge
@@ -232,7 +299,15 @@ Or inside Claude Code:
 /plugin marketplace update pitimon-c-memforge
 ```
 
+### Claude Cowork
+
+Download and upload the latest ZIP package.
+
+---
+
 ## Development
+
+See [MAINTENANCE.md](MAINTENANCE.md) for detailed maintenance instructions.
 
 ```bash
 # Check dependencies
@@ -243,7 +318,12 @@ bun run mcp
 
 # Run sync watcher
 bun run sync
+
+# Build Cowork package
+./scripts/build-cowork.sh "api-key"
 ```
+
+---
 
 ## License
 
