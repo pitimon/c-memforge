@@ -34,11 +34,53 @@ echo "Copying plugin files..."
 cp -r "$PLUGIN_ROOT/.claude-plugin" "$COWORK_DIR/"
 mkdir -p "$COWORK_DIR/src"
 cp -r "$PLUGIN_ROOT/src/mcp" "$COWORK_DIR/src/"
-cp "$PLUGIN_ROOT/.mcp.json" "$COWORK_DIR/"
 cp "$PLUGIN_ROOT/tsconfig.json" "$COWORK_DIR/"
+
+# Create scripts directory with wrapper
+mkdir -p "$COWORK_DIR/scripts"
+
+# Create wrapper script that finds bun in common locations
+cat > "$COWORK_DIR/scripts/run-mcp.sh" << 'WRAPPER_EOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Find bun in common locations
+if [ -x "$HOME/.bun/bin/bun" ]; then
+    BUN="$HOME/.bun/bin/bun"
+elif [ -x "/opt/homebrew/bin/bun" ]; then
+    BUN="/opt/homebrew/bin/bun"
+elif [ -x "/usr/local/bin/bun" ]; then
+    BUN="/usr/local/bin/bun"
+elif command -v bun &> /dev/null; then
+    BUN=$(command -v bun)
+else
+    echo "Error: bun not found. Install from https://bun.sh" >&2
+    exit 1
+fi
+
+exec "$BUN" run "$PLUGIN_ROOT/src/mcp/mcp-server.ts"
+WRAPPER_EOF
+chmod +x "$COWORK_DIR/scripts/run-mcp.sh"
 
 # Remove marketplace.json (not needed for direct upload)
 rm -f "$COWORK_DIR/.claude-plugin/marketplace.json"
+
+# Create .mcp.json using wrapper script (Cowork-specific)
+cat > "$COWORK_DIR/.mcp.json" << 'EOF'
+{
+  "mcpServers": {
+    "memforge": {
+      "type": "stdio",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/run-mcp.sh",
+      "args": [],
+      "env": {
+        "CLAUDE_MEM_REMOTE_URL": "https://memclaude.thaicloud.ai"
+      }
+    }
+  }
+}
+EOF
 
 # Create simplified package.json
 cat > "$COWORK_DIR/package.json" << 'EOF'
