@@ -2,7 +2,11 @@
 /**
  * Setup Script
  *
- * Interactive setup for API key configuration.
+ * Configure API key for MemForge client.
+ *
+ * Usage:
+ *   bun run setup [api-key]     # Quick setup with API key
+ *   bun run setup               # Interactive setup
  */
 
 import { existsSync, readFileSync, writeFileSync, copyFileSync } from 'fs';
@@ -40,9 +44,60 @@ function mask(key: string): string {
 }
 
 /**
- * Main setup function.
+ * Quick setup with API key from argument.
  */
-async function setup(): Promise<void> {
+async function quickSetup(apiKey: string): Promise<void> {
+  console.log('');
+  console.log('╔══════════════════════════════════════════════╗');
+  console.log('║  MemForge Client - Quick Setup               ║');
+  console.log('╚══════════════════════════════════════════════╝');
+  console.log('');
+
+  // Check claude-mem dependency
+  if (!isClaudeMemInstalled()) {
+    console.error('❌ Required: thedotmack/claude-mem plugin');
+    console.error('');
+    console.error('Install with:');
+    console.error('  /plugin marketplace add thedotmack/claude-mem');
+    console.error('');
+    process.exit(1);
+  }
+  const version = getClaudeMemVersion();
+  console.log(`✓ claude-mem ${version || 'unknown'} detected`);
+
+  // Load or create config
+  let config: Config;
+  if (existsSync(CONFIG_PATH)) {
+    config = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+  } else if (existsSync(CONFIG_EXAMPLE)) {
+    copyFileSync(CONFIG_EXAMPLE, CONFIG_PATH);
+    config = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+  } else {
+    config = {
+      apiKey: '',
+      serverUrl: 'https://memclaude.thaicloud.ai',
+      syncEnabled: true,
+      pollInterval: 2000
+    };
+  }
+
+  // Set API key
+  config.apiKey = apiKey;
+
+  // Save config
+  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+
+  console.log(`✓ API key configured: ${mask(apiKey)}`);
+  console.log(`✓ Server: ${config.serverUrl}`);
+  console.log('');
+  console.log('Configuration complete! Restart Claude Code to use the plugin.');
+  console.log('');
+}
+
+/**
+ * Interactive setup.
+ */
+async function interactiveSetup(): Promise<void> {
   console.log('');
   console.log('╔══════════════════════════════════════════════╗');
   console.log('║  MemForge Client Setup                       ║');
@@ -143,20 +198,30 @@ async function setup(): Promise<void> {
   console.log('');
   console.log(`Config saved to: ${CONFIG_PATH}`);
   console.log('');
-  console.log('Next steps:');
+  console.log('Restart Claude Code to use the plugin.');
   console.log('');
-  console.log('  If installed via marketplace, restart Claude Code to load the plugin.');
-  console.log('');
-  console.log('  If installed manually, add plugin to Claude Code:');
-  console.log(`     /plugin add ${PLUGIN_ROOT}`);
-  console.log('');
-  console.log('  (Optional) Start sync service:');
-  console.log('     bun run sync');
+  console.log('(Optional) Start sync service:');
+  console.log('   bun run sync');
   console.log('');
 }
 
+/**
+ * Main entry point.
+ */
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+
+  if (args.length > 0 && args[0] && !args[0].startsWith('-')) {
+    // Quick setup with API key from argument
+    await quickSetup(args[0]);
+  } else {
+    // Interactive setup
+    await interactiveSetup();
+  }
+}
+
 // Run
-setup().catch((error) => {
+main().catch((error) => {
   console.error('Setup failed:', error);
   process.exit(1);
 });

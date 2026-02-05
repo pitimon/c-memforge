@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "setup": "bun scripts/setup.ts",
+    "postinstall": "echo 'Run: bun run setup [your-api-key]'",
     "sync": "bun src/sync/db-watcher.ts",
     "check": "bun scripts/check-dependency.ts",
     "mcp": "bun src/mcp/mcp-server.ts"
