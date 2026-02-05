@@ -1,18 +1,23 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "pitimon-c-memforge",
+  "description": "MemForge Client - Persistent semantic memory for Claude Code",
   "owner": {
-    "name": "Pitimon"
-  },
-  "metadata": {
-    "description": "MemForge Client - Persistent semantic memory for Claude Code",
-    "homepage": "https://github.com/pitimon/c-memforge"
+    "name": "Pitimon",
+    "email": "pitimon@thaicloud.ai"
   },
   "plugins": [
     {
       "name": "memforge-client",
+      "description": "MemForge - Persistent memory for Claude Code (SaaS client)",
       "version": "1.0.0",
-      "source": ".",
-      "description": "MemForge - Persistent memory for Claude Code (SaaS client)"
+      "author": {
+        "name": "Pitimon",
+        "email": "pitimon@thaicloud.ai"
+      },
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://github.com/pitimon/c-memforge"
     }
   ]
 }
