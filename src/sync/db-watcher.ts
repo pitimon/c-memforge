@@ -9,7 +9,7 @@
 import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import { remoteSync } from './remote-sync';
 
 const DB_PATH = join(homedir(), '.claude-mem/claude-mem.db');
@@ -22,17 +22,20 @@ interface ObservationRow {
   subtitle: string | null;
   narrative: string | null;
   project: string | null;
-  files: string | null;
+  text: string | null;
+  facts: string | null;
   concepts: string | null;
+  files_read: string | null;
+  files_modified: string | null;
   created_at: string | null;
-  session_id: string | null;
+  memory_session_id: string | null;
 }
 
 /**
  * Database watcher that polls for new observations.
  */
 export class DatabaseWatcher {
-  private db: Database.Database | null = null;
+  private db: Database | null = null;
   private lastRowId = 0;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private pollInterval: number;
@@ -103,7 +106,7 @@ export class DatabaseWatcher {
       this.isRunning = true;
 
       // Get initial max rowid
-      const row = this.db.prepare('SELECT MAX(id) as maxId FROM observations').get() as { maxId: number | null };
+      const row = this.db.query('SELECT MAX(id) as maxId FROM observations').get() as { maxId: number | null };
       this.lastRowId = row?.maxId || 0;
       console.log(`Starting from observation ID: ${this.lastRowId}`);
       console.log('');
@@ -129,12 +132,13 @@ export class DatabaseWatcher {
     if (!this.db) return;
 
     try {
-      const rows = this.db.prepare(`
-        SELECT id, type, title, subtitle, narrative, project, files, concepts, created_at, session_id
+      const rows = this.db.query(`
+        SELECT id, type, title, subtitle, narrative, project, text, facts, concepts,
+               files_read, files_modified, created_at, memory_session_id
         FROM observations
-        WHERE id > ?
+        WHERE id > $lastRowId
         ORDER BY id ASC
-      `).all(this.lastRowId) as ObservationRow[];
+      `).all({ $lastRowId: this.lastRowId }) as ObservationRow[];
 
       if (rows.length === 0) return;
 
@@ -148,10 +152,13 @@ export class DatabaseWatcher {
           subtitle: row.subtitle,
           narrative: row.narrative,
           project: row.project,
-          files: row.files ? JSON.parse(row.files) : null,
+          text: row.text,
+          facts: row.facts ? JSON.parse(row.facts) : null,
           concepts: row.concepts ? JSON.parse(row.concepts) : null,
+          files_read: row.files_read ? JSON.parse(row.files_read) : null,
+          files_modified: row.files_modified ? JSON.parse(row.files_modified) : null,
           created_at: row.created_at,
-          session_id: row.session_id
+          session_id: row.memory_session_id
         };
 
         const result = await remoteSync.syncObservation(observation);
