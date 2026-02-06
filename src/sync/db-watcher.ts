@@ -32,7 +32,26 @@ interface ObservationRow {
   memory_session_id: string | null;
   prompt_number: number | null;
   discovery_tokens: number | null;
-  sdk_session_id: number | null;  // Joined from sdk_sessions table
+  sdk_session_id: number | null;
+}
+
+interface SummaryRow {
+  id: number;
+  memory_session_id: string | null;
+  project: string | null;
+  request: string | null;
+  investigated: string | null;
+  learned: string | null;
+  completed: string | null;
+  next_steps: string | null;
+  files_read: string | null;
+  files_edited: string | null;
+  notes: string | null;
+  prompt_number: number | null;
+  created_at: string | null;
+  created_at_epoch: number | null;
+  discovery_tokens: number | null;
+  sdk_session_id: number | null;
 }
 
 /**
@@ -41,6 +60,7 @@ interface ObservationRow {
 export class DatabaseWatcher {
   private db: Database | null = null;
   private lastRowId = 0;
+  private lastSummaryId = 0;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private pollInterval: number;
   private isRunning = false;
@@ -109,12 +129,16 @@ export class DatabaseWatcher {
       this.db = new Database(DB_PATH, { readonly: true });
       this.isRunning = true;
 
-      // Get initial max rowid
-      const row = this.db.query('SELECT MAX(id) as maxId FROM observations').get() as { maxId: number | null };
-      this.lastRowId = row?.maxId || 0;
-      console.log(`Starting from observation ID: ${this.lastRowId}`);
+      // Get initial max rowids
+      const obsRow = this.db.query('SELECT MAX(id) as maxId FROM observations').get() as { maxId: number | null };
+      this.lastRowId = obsRow?.maxId || 0;
+
+      const sumRow = this.db.query('SELECT MAX(id) as maxId FROM session_summaries').get() as { maxId: number | null };
+      this.lastSummaryId = sumRow?.maxId || 0;
+
+      console.log(`Starting from observation ID: ${this.lastRowId}, summary ID: ${this.lastSummaryId}`);
       console.log('');
-      console.log('Watching for new observations... (Ctrl+C to stop)');
+      console.log('Watching for new observations and summaries... (Ctrl+C to stop)');
       console.log('');
 
       // Start polling
@@ -147,36 +171,36 @@ export class DatabaseWatcher {
         ORDER BY o.id ASC
       `).all({ $lastRowId: this.lastRowId }) as ObservationRow[];
 
-      if (rows.length === 0) return;
+      // Sync observations
+      if (rows.length > 0) {
+        console.log(`Found ${rows.length} new observation(s)`);
 
-      console.log(`Found ${rows.length} new observation(s)`);
+        const observations = rows.map(row => ({
+          id: row.id,
+          sdk_session_id: row.sdk_session_id || 1,
+          type: row.type,
+          title: row.title,
+          subtitle: row.subtitle,
+          narrative: row.narrative,
+          project: row.project,
+          text: row.text,
+          facts: row.facts || '[]',
+          concepts: row.concepts || '[]',
+          files_read: row.files_read || '[]',
+          files_modified: row.files_modified || '[]',
+          created_at: row.created_at,
+          created_at_epoch: row.created_at_epoch || Math.floor(Date.now() / 1000),
+          prompt_number: row.prompt_number || 0,
+          discovery_tokens: row.discovery_tokens || 0
+        }));
 
-      // Map all rows to server format
-      const observations = rows.map(row => ({
-        id: row.id,
-        sdk_session_id: row.sdk_session_id || 1,
-        type: row.type,
-        title: row.title,
-        subtitle: row.subtitle,
-        narrative: row.narrative,
-        project: row.project,
-        text: row.text,
-        facts: row.facts || '[]',
-        concepts: row.concepts || '[]',
-        files_read: row.files_read || '[]',
-        files_modified: row.files_modified || '[]',
-        created_at: row.created_at,
-        created_at_epoch: row.created_at_epoch || Math.floor(Date.now() / 1000),
-        prompt_number: row.prompt_number || 0,
-        discovery_tokens: row.discovery_tokens || 0
-      }));
+        const result = await remoteSync.syncBatch(observations);
+        console.log(`  Observations: ${result.synced} synced, ${result.failed} failed`);
+        this.lastRowId = rows[rows.length - 1].id;
+      }
 
-      // Batch sync all observations at once
-      const result = await remoteSync.syncBatch(observations);
-      console.log(`  Batch result: ${result.synced} synced, ${result.failed} failed`);
-
-      // Update lastRowId to the highest processed ID
-      this.lastRowId = rows[rows.length - 1].id;
+      // Sync summaries
+      await this.checkNewSummaries();
 
       // Retry pending if any
       const pendingCount = remoteSync.getPendingCount();
@@ -191,6 +215,51 @@ export class DatabaseWatcher {
       // Database might be locked, retry next poll
       console.error('Poll error:', error);
     }
+  }
+
+  /**
+   * Check for new summaries in the database.
+   */
+  private async checkNewSummaries(): Promise<void> {
+    if (!this.db) return;
+
+    const summaryRows = this.db.query(`
+      SELECT s.id, s.memory_session_id, s.project, s.request, s.investigated,
+             s.learned, s.completed, s.next_steps, s.files_read, s.files_edited,
+             s.notes, s.prompt_number, s.created_at, s.created_at_epoch,
+             s.discovery_tokens, ss.id as sdk_session_id
+      FROM session_summaries s
+      LEFT JOIN sdk_sessions ss ON s.memory_session_id = ss.memory_session_id
+      WHERE s.id > $lastSummaryId
+      ORDER BY s.id ASC
+    `).all({ $lastSummaryId: this.lastSummaryId }) as SummaryRow[];
+
+    if (summaryRows.length === 0) return;
+
+    console.log(`Found ${summaryRows.length} new summary(ies)`);
+
+    const summaries = summaryRows.map(row => ({
+      id: row.id,
+      sdk_session_id: row.sdk_session_id || 1,
+      memory_session_id: row.memory_session_id,
+      project: row.project,
+      request: row.request,
+      investigated: row.investigated,
+      learned: row.learned,
+      completed: row.completed,
+      next_steps: row.next_steps,
+      files_read: row.files_read || '[]',
+      files_edited: row.files_edited || '[]',
+      notes: row.notes,
+      prompt_number: row.prompt_number || 0,
+      created_at: row.created_at,
+      created_at_epoch: row.created_at_epoch || Math.floor(Date.now() / 1000),
+      discovery_tokens: row.discovery_tokens || 0
+    }));
+
+    const result = await remoteSync.syncSummaries(summaries);
+    console.log(`  Summaries: ${result.synced} synced, ${result.failed} failed`);
+    this.lastSummaryId = summaryRows[summaryRows.length - 1].id;
   }
 
   /**

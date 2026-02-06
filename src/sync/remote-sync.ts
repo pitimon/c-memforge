@@ -180,6 +180,39 @@ export class RemoteSync {
   }
 
   /**
+   * Sync summaries to the remote server.
+   * Uses /api/sync/push endpoint with summaries array wrapper.
+   */
+  async syncSummaries(summaries: Record<string, unknown>[]): Promise<{ synced: number; failed: number }> {
+    if (!this.config || !this.config.syncEnabled) {
+      return { synced: 0, failed: summaries.length };
+    }
+
+    try {
+      const response = await fetch(`${this.config.serverUrl}/api/sync/push`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': this.config.apiKey
+        },
+        body: JSON.stringify({ summaries }),
+        signal: AbortSignal.timeout(60000)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        return { synced: 0, failed: summaries.length };
+      }
+
+      const result = await response.json() as { summaries?: { inserted: number; updated: number } };
+      const totalSynced = (result.summaries?.inserted || 0) + (result.summaries?.updated || 0);
+      return { synced: totalSynced || summaries.length, failed: 0 };
+    } catch {
+      return { synced: 0, failed: summaries.length };
+    }
+  }
+
+  /**
    * Clear pending queue.
    */
   clearPending(): void {
