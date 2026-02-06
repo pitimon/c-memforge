@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document covers maintenance procedures for the MemForge Client plugin across both Claude Code and Claude Cowork platforms.
+This document covers maintenance procedures for the MemForge Client plugin for Claude Code.
 
 ## Repository Structure
 
@@ -26,8 +26,7 @@ c-memforge/
 │       └── remote-sync.ts   # Remote sync client
 ├── scripts/
 │   ├── setup.ts             # Configuration script
-│   ├── check-dependency.ts  # Dependency checker
-│   └── build-cowork.sh      # Cowork package builder
+│   └── check-dependency.ts  # Dependency checker
 ├── config.example.json      # Config template
 ├── config.local.json        # User config (gitignored)
 ├── .mcp.json                # MCP server configuration
@@ -52,7 +51,6 @@ Path: ***REMOVED***
 |-----|------|---------|
 | `***REMOVED***` | itarun | Original user key |
 | `***REMOVED***` | itarun | c-memforge client |
-| `***REMOVED***` | cowork | Claude Cowork distribution |
 
 ### Adding New API Key
 
@@ -155,80 +153,6 @@ bun run setup "API-KEY"
 # Test
 bun run mcp
 bun run sync
-```
-
----
-
-## Claude Cowork Package Maintenance
-
-### Build New Package
-
-```bash
-# Use build script
-cd /Users/itarun/c-memforge
-./scripts/build-cowork.sh "API-KEY"
-
-# Output: memforge-client-cowork.zip
-```
-
-### Manual Build Process
-
-```bash
-# 1. Create temp directory
-COWORK_DIR="/tmp/memforge-cowork"
-rm -rf "$COWORK_DIR"
-mkdir -p "$COWORK_DIR"
-
-# 2. Copy files
-cp -r .claude-plugin "$COWORK_DIR/"
-cp -r src/mcp "$COWORK_DIR/src/"
-cp .mcp.json "$COWORK_DIR/"
-cp package.json "$COWORK_DIR/"
-cp tsconfig.json "$COWORK_DIR/"
-
-# 3. Remove marketplace.json (not needed for upload)
-rm -f "$COWORK_DIR/.claude-plugin/marketplace.json"
-
-# 4. Create embedded config
-cat > "$COWORK_DIR/config.local.json" << EOF
-{
-  "apiKey": "YOUR-API-KEY",
-  "serverUrl": "https://memclaude.thaicloud.ai",
-  "syncEnabled": false,
-  "pollInterval": 2000
-}
-EOF
-
-# 5. Update plugin.json
-cat > "$COWORK_DIR/.claude-plugin/plugin.json" << EOF
-{
-  "name": "memforge-client",
-  "version": "1.0.0",
-  "description": "MemForge - Persistent semantic memory for Claude (Pre-configured)"
-}
-EOF
-
-# 6. Remove sync directory (not needed for Cowork)
-rm -rf "$COWORK_DIR/src/sync"
-
-# 7. Create ZIP
-cd "$COWORK_DIR"
-zip -r /Users/itarun/memforge-client-cowork.zip .
-```
-
-### Cowork Package Contents
-
-```
-memforge-client-cowork.zip/
-├── .claude-plugin/
-│   ├── plugin.json
-│   ├── hooks/hooks.json
-│   └── CLAUDE.md
-├── .mcp.json
-├── config.local.json      # ⭐ Embedded API key
-├── package.json
-├── tsconfig.json
-└── src/mcp/               # MCP tools only (no sync)
 ```
 
 ---
@@ -336,15 +260,6 @@ ssh itarun@***REMOVED*** 'cd ***REMOVED*** && docker compose restart worker'
 - [ ] Commit and push to GitHub
 - [ ] Test remote install flow
 - [ ] Update documentation
-
-### Claude Cowork Release
-
-- [ ] Generate new API key if needed
-- [ ] Add key to production server
-- [ ] Build ZIP: `./scripts/build-cowork.sh "API-KEY"`
-- [ ] Test upload to Cowork
-- [ ] Verify MCP tools work
-- [ ] Update release notes
 
 ---
 

@@ -11,16 +11,7 @@ MemForge Client is a companion plugin that connects to the [MemForge](https://me
 - **Hybrid search** combining vector embeddings and full-text search
 - **Knowledge graph** with entity lookup and triplet queries
 
-## Platforms
-
-| Platform | Installation | Sync Support |
-|----------|--------------|--------------|
-| **Claude Code** | Marketplace / Manual | ✅ Full sync |
-| **Claude Cowork** | ZIP upload | ❌ Search only |
-
----
-
-## Claude Code Installation
+## Installation
 
 ### Prerequisites
 
@@ -92,35 +83,6 @@ The sync service:
 - Syncs new observations to remote server
 - Retries failed syncs automatically
 - Runs in read-only mode (no conflicts with claude-mem)
-
----
-
-## Claude Cowork Installation
-
-For Claude Cowork (web-based), use the pre-configured ZIP package:
-
-### Option 1: Pre-built Package
-
-1. Download `memforge-client-cowork.zip` from releases
-2. Open Claude Cowork → Plugins → Upload local plugin
-3. Drag & drop the ZIP file
-4. Plugin is ready (pre-configured API key)
-
-### Option 2: Build Custom Package
-
-```bash
-# Generate package with custom API key
-./scripts/build-cowork.sh "your-api-key"
-
-# Output: memforge-client-cowork.zip
-```
-
-### Cowork Limitations
-
-- ❌ No sync service (no local database access)
-- ❌ No claude-mem dependency
-- ✅ All 14 MCP search/query tools work
-- ✅ Pre-configured API key (no setup needed)
 
 ---
 
@@ -224,21 +186,6 @@ To use your own MemForge server:
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Claude Cowork (Search Only)
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ Claude Cowork (browser)                                 │
-│ memforge-client plugin (ZIP)                            │
-└─────────────────────┬───────────────────────────────────┘
-                      │ HTTPS + X-API-Key
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│ memclaude.thaicloud.ai                                  │
-│ GET /api/search/* → semantic search                     │
-└─────────────────────────────────────────────────────────┘
-```
-
 ---
 
 ## Scripts
@@ -299,10 +246,6 @@ Or inside Claude Code:
 /plugin marketplace update pitimon-c-memforge
 ```
 
-### Claude Cowork
-
-Download and upload the latest ZIP package.
-
 ---
 
 ## Development
@@ -318,9 +261,6 @@ bun run mcp
 
 # Run sync watcher
 bun run sync
-
-# Build Cowork package
-./scripts/build-cowork.sh "api-key"
 ```
 
 ---
