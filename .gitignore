@@ -8,8 +8,9 @@ dist/
 # Local configuration (contains API keys)
 config.local.json
 
-# Sync queue (may contain observation data)
+# Sync queue and watermark (local state)
 .sync-queue.json
+.sync-watermark.json
 
 # Environment variables
 .env

@@ -6,14 +6,42 @@
  * and syncs them to the remote server.
  */
 
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { Database } from 'bun:sqlite';
 import { remoteSync } from './remote-sync';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PLUGIN_ROOT = join(__dirname, '../..');
 const DB_PATH = join(homedir(), '.claude-mem/claude-mem.db');
+const WATERMARK_PATH = join(PLUGIN_ROOT, '.sync-watermark.json');
 const DEFAULT_POLL_INTERVAL = 2000; // 2 seconds
+
+interface Watermark {
+  lastObservationId: number;
+  lastSummaryId: number;
+  updatedAt: string;
+}
+
+function loadWatermark(): Watermark | null {
+  try {
+    if (existsSync(WATERMARK_PATH)) {
+      return JSON.parse(readFileSync(WATERMARK_PATH, 'utf-8'));
+    }
+  } catch { /* ignore parse errors, start fresh */ }
+  return null;
+}
+
+function saveWatermark(obsId: number, sumId: number): void {
+  const watermark: Watermark = {
+    lastObservationId: obsId,
+    lastSummaryId: sumId,
+    updatedAt: new Date().toISOString()
+  };
+  writeFileSync(WATERMARK_PATH, JSON.stringify(watermark, null, 2));
+}
 
 interface ObservationRow {
   id: number;
@@ -129,14 +157,20 @@ export class DatabaseWatcher {
       this.db = new Database(DB_PATH, { readonly: true });
       this.isRunning = true;
 
-      // Get initial max rowids
-      const obsRow = this.db.query('SELECT MAX(id) as maxId FROM observations').get() as { maxId: number | null };
-      this.lastRowId = obsRow?.maxId || 0;
-
-      const sumRow = this.db.query('SELECT MAX(id) as maxId FROM session_summaries').get() as { maxId: number | null };
-      this.lastSummaryId = sumRow?.maxId || 0;
-
-      console.log(`Starting from observation ID: ${this.lastRowId}, summary ID: ${this.lastSummaryId}`);
+      // Restore watermark from disk, fall back to MAX(id) on first run
+      const watermark = loadWatermark();
+      if (watermark) {
+        this.lastRowId = watermark.lastObservationId;
+        this.lastSummaryId = watermark.lastSummaryId;
+        console.log(`Restored watermark: observation ID: ${this.lastRowId}, summary ID: ${this.lastSummaryId}`);
+      } else {
+        const obsRow = this.db.query('SELECT MAX(id) as maxId FROM observations').get() as { maxId: number | null };
+        this.lastRowId = obsRow?.maxId || 0;
+        const sumRow = this.db.query('SELECT MAX(id) as maxId FROM session_summaries').get() as { maxId: number | null };
+        this.lastSummaryId = sumRow?.maxId || 0;
+        saveWatermark(this.lastRowId, this.lastSummaryId);
+        console.log(`First run — starting from observation ID: ${this.lastRowId}, summary ID: ${this.lastSummaryId}`);
+      }
       console.log('');
       console.log('Watching for new observations and summaries... (Ctrl+C to stop)');
       console.log('');
@@ -196,7 +230,10 @@ export class DatabaseWatcher {
 
         const result = await remoteSync.syncBatch(observations);
         console.log(`  Observations: ${result.synced} synced, ${result.failed} failed`);
-        this.lastRowId = rows[rows.length - 1].id;
+        if (result.failed === 0) {
+          this.lastRowId = rows[rows.length - 1].id;
+          saveWatermark(this.lastRowId, this.lastSummaryId);
+        }
       }
 
       // Sync summaries
@@ -259,7 +296,10 @@ export class DatabaseWatcher {
 
     const result = await remoteSync.syncSummaries(summaries);
     console.log(`  Summaries: ${result.synced} synced, ${result.failed} failed`);
-    this.lastSummaryId = summaryRows[summaryRows.length - 1].id;
+    if (result.failed === 0) {
+      this.lastSummaryId = summaryRows[summaryRows.length - 1].id;
+      saveWatermark(this.lastRowId, this.lastSummaryId);
+    }
   }
 
   /**
@@ -280,12 +320,14 @@ export class DatabaseWatcher {
     }
 
     this.isRunning = false;
+    saveWatermark(this.lastRowId, this.lastSummaryId);
 
     const pendingCount = remoteSync.getPendingCount();
     if (pendingCount > 0) {
       console.log(`Warning: ${pendingCount} observation(s) pending sync`);
     }
 
+    console.log(`Watermark saved: obs=${this.lastRowId}, sum=${this.lastSummaryId}`);
     console.log('Watcher stopped.');
     process.exit(0);
   }
