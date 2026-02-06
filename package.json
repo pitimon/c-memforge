@@ -8,7 +8,8 @@
     "postinstall": "echo 'Run: bun run setup [your-api-key]'",
     "sync": "bun src/sync/db-watcher.ts",
     "check": "bun scripts/check-dependency.ts",
-    "mcp": "bun src/mcp/mcp-server.ts"
+    "mcp": "bun src/mcp/mcp-server.ts",
+    "sync-manager": "bun src/sync/sync-manager.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1"

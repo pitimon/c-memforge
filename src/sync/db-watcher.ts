@@ -151,36 +151,32 @@ export class DatabaseWatcher {
 
       console.log(`Found ${rows.length} new observation(s)`);
 
-      for (const row of rows) {
-        // Map fields to server's expected format
-        const observation = {
-          id: row.id,
-          sdk_session_id: row.sdk_session_id || 1, // Fallback to 1 if no session found
-          type: row.type,
-          title: row.title,
-          subtitle: row.subtitle,
-          narrative: row.narrative,
-          project: row.project,
-          text: row.text,
-          facts: row.facts || '[]',
-          concepts: row.concepts || '[]',
-          files_read: row.files_read || '[]',
-          files_modified: row.files_modified || '[]',
-          created_at: row.created_at,
-          created_at_epoch: row.created_at_epoch || Math.floor(Date.now() / 1000),
-          prompt_number: row.prompt_number || 0,
-          discovery_tokens: row.discovery_tokens || 0
-        };
+      // Map all rows to server format
+      const observations = rows.map(row => ({
+        id: row.id,
+        sdk_session_id: row.sdk_session_id || 1,
+        type: row.type,
+        title: row.title,
+        subtitle: row.subtitle,
+        narrative: row.narrative,
+        project: row.project,
+        text: row.text,
+        facts: row.facts || '[]',
+        concepts: row.concepts || '[]',
+        files_read: row.files_read || '[]',
+        files_modified: row.files_modified || '[]',
+        created_at: row.created_at,
+        created_at_epoch: row.created_at_epoch || Math.floor(Date.now() / 1000),
+        prompt_number: row.prompt_number || 0,
+        discovery_tokens: row.discovery_tokens || 0
+      }));
 
-        const result = await remoteSync.syncObservation(observation);
-        if (result.success) {
-          console.log(`  ✓ Synced #${row.id}: ${(row.title || 'Untitled').slice(0, 50)}`);
-        } else {
-          console.log(`  ✗ Failed #${row.id}: ${result.error}`);
-        }
+      // Batch sync all observations at once
+      const result = await remoteSync.syncBatch(observations);
+      console.log(`  Batch result: ${result.synced} synced, ${result.failed} failed`);
 
-        this.lastRowId = row.id;
-      }
+      // Update lastRowId to the highest processed ID
+      this.lastRowId = rows[rows.length - 1].id;
 
       // Retry pending if any
       const pendingCount = remoteSync.getPendingCount();

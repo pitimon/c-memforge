@@ -7,6 +7,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { pendingQueue } from './pending-queue';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(__dirname, '../..');
@@ -29,7 +30,6 @@ interface SyncResult {
  */
 export class RemoteSync {
   private config: Config | null = null;
-  private pendingQueue: Array<Record<string, unknown>> = [];
 
   constructor() {
     this.loadConfig();
@@ -98,13 +98,13 @@ export class RemoteSync {
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
-        this.pendingQueue.push(observation);
+        pendingQueue.add(observation);
         return { success: false, error: `HTTP ${response.status}: ${errorText}` };
       }
 
       return { success: true };
     } catch (err) {
-      this.pendingQueue.push(observation);
+      pendingQueue.add(observation);
       const message = err instanceof Error ? err.message : String(err);
       return { success: false, error: message };
     }
@@ -144,23 +144,29 @@ export class RemoteSync {
       const totalSynced = (result.observations?.inserted || 0) + (result.observations?.updated || 0);
       return { synced: totalSynced || observations.length, failed: 0 };
     } catch (err) {
-      // Queue all for retry
-      this.pendingQueue.push(...observations);
+      // Queue all for retry via persistent disk queue
+      for (const obs of observations) {
+        pendingQueue.add(obs);
+      }
       return { synced: 0, failed: observations.length };
     }
   }
 
   /**
-   * Retry pending failed syncs.
+   * Retry pending failed syncs from persistent disk queue.
    */
   async retryPending(): Promise<number> {
-    const pending = [...this.pendingQueue];
-    this.pendingQueue = [];
+    const retryItems = pendingQueue.getRetryItems();
     let synced = 0;
 
-    for (const item of pending) {
-      const result = await this.syncObservation(item);
-      if (result.success) synced++;
+    for (const item of retryItems) {
+      const result = await this.syncObservation(item.observation);
+      if (result.success) {
+        pendingQueue.remove(item.id);
+        synced++;
+      } else {
+        pendingQueue.incrementRetry(item.id);
+      }
     }
 
     return synced;
@@ -170,14 +176,14 @@ export class RemoteSync {
    * Get count of pending items.
    */
   getPendingCount(): number {
-    return this.pendingQueue.length;
+    return pendingQueue.size();
   }
 
   /**
    * Clear pending queue.
    */
   clearPending(): void {
-    this.pendingQueue = [];
+    pendingQueue.clear();
   }
 }
 
