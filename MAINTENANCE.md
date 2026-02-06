@@ -38,65 +38,26 @@ c-memforge/
 
 ## API Key Management
 
-### Production Server Location
+### For Users
 
+Get your API key at: https://memclaude.thaicloud.ai/settings
+
+Configure it using:
+```bash
+cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
+bun run setup "your-api-key"
 ```
-Server: ***REMOVED***
-Path: ***REMOVED***
-```
 
-### Current API Keys
+### For Administrators
 
-| Key | User | Purpose |
-|-----|------|---------|
-| `***REMOVED***` | itarun | Original user key |
-| `***REMOVED***` | itarun | c-memforge client |
-
-### Adding New API Key
+API key management is documented in the **private** memforge server repository. Never store production API keys in this public repository.
 
 ```bash
-# 1. Generate key
-NEW_KEY=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 32)
-echo "New key: $NEW_KEY"
+# Generate a new key
+openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 32
 
-# 2. SSH to production server
-ssh itarun@***REMOVED***
-
-# 3. Edit api-keys.json
-vi ***REMOVED***
-
-# 4. Add new key entry
-{
-  "keys": {
-    "existing-keys": "...",
-    "NEW_KEY_HERE": {
-      "user": "username",
-      "database": "database-name",
-      "description": "Key description"
-    }
-  }
-}
-
-# 5. Restart worker
-cd ***REMOVED***
-docker compose restart worker
-
-# 6. Verify
-curl -H "X-API-Key: NEW_KEY" https://memclaude.thaicloud.ai/health
-```
-
-### Revoking API Key
-
-```bash
-# 1. SSH to production
-ssh itarun@***REMOVED***
-
-# 2. Remove key from api-keys.json
-vi ***REMOVED***
-
-# 3. Restart worker
-cd ***REMOVED***
-docker compose restart worker
+# Verify a key
+curl -H "X-API-Key: KEY" https://memclaude.thaicloud.ai/health
 ```
 
 ---
@@ -107,7 +68,6 @@ docker compose restart worker
 
 ```bash
 # 1. Make changes locally
-cd /Users/itarun/c-memforge
 # Edit files...
 
 # 2. Test locally
@@ -118,26 +78,17 @@ bun run sync
 git add -A
 git commit -m "description"
 git push origin main
-
-# 4. Update on remote test server
-ssh itarun@***REMOVED***
-claude plugin marketplace update pitimon-c-memforge
 ```
 
 ### Plugin Paths
 
 | Environment | Path |
 |-------------|------|
-| Development | `/Users/itarun/c-memforge/` |
-| Remote Test | `~/.claude/plugins/marketplaces/pitimon-c-memforge/` |
 | User Install | `~/.claude/plugins/marketplaces/pitimon-c-memforge/` |
 
 ### Testing Installation Flow
 
 ```bash
-# Full reinstall test
-ssh itarun@***REMOVED***
-
 # Remove existing
 claude plugin remove memforge-client
 claude plugin marketplace remove pitimon-c-memforge
@@ -177,15 +128,6 @@ curl -H "X-API-Key: KEY" https://memclaude.thaicloud.ai/health | jq .
 
 ```bash
 curl -H "X-API-Key: KEY" "https://memclaude.thaicloud.ai/api/search?q=test&limit=3" | jq .
-```
-
-### Test Sync
-
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -H "X-API-Key: KEY" \
-  https://memclaude.thaicloud.ai/api/sync/push \
-  -d '{"observations": [{"id": 1, "type": "test", "title": "Test", ...}]}'
 ```
 
 ---
@@ -240,11 +182,10 @@ bun run sync
 ### API Key Rejected
 
 ```bash
-# Verify key on server
-ssh itarun@***REMOVED*** 'cat ***REMOVED***'
+# Verify key works
+curl -H "X-API-Key: YOUR_KEY" https://memclaude.thaicloud.ai/health
 
-# Restart worker if needed
-ssh itarun@***REMOVED*** 'cd ***REMOVED*** && docker compose restart worker'
+# If rejected, request a new key from the administrator
 ```
 
 ---
@@ -266,6 +207,4 @@ ssh itarun@***REMOVED*** 'cd ***REMOVED*** && docker compose restart worker'
 ## Contacts
 
 - **Repository**: https://github.com/pitimon/c-memforge
-- **Server**: memclaude.thaicloud.ai
-- **Production SSH**: itarun@***REMOVED***
-- **Test SSH**: itarun@***REMOVED***
+- **Server**: https://memclaude.thaicloud.ai
