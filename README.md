@@ -161,6 +161,8 @@ To use your own MemForge server:
 
 ## Architecture
 
+### High-Level Overview
+
 ```mermaid
 graph TB
     subgraph "Local Machine"
@@ -179,10 +181,11 @@ graph TB
 
     User[Claude Code] -.->|14 MCP Tools<br/>Search & Retrieve| API
 
-    style CM fill:#e1f5ff
-    style MFC fill:#fff4e1
-    style API fill:#ffe1e1
-    style VDB fill:#f0e1ff
+    style CM fill:#1a365d,stroke:#2d3748,stroke-width:2px,color:#fff
+    style MFC fill:#2f855a,stroke:#276749,stroke-width:2px,color:#fff
+    style API fill:#2b6cb0,stroke:#2c5282,stroke-width:2px,color:#fff
+    style VDB fill:#6b46c1,stroke:#553c9a,stroke-width:2px,color:#fff
+    style User fill:#ed8936,stroke:#c05621,stroke-width:2px,color:#fff
 ```
 
 **Components:**
@@ -190,6 +193,35 @@ graph TB
 - **memforge-client**: Sync service that polls local DB every 2s and pushes to remote
 - **MemForge API**: Remote server handling sync and search requests
 - **Vector DB**: Memgraph database with semantic search capabilities
+
+### Detailed Flow
+
+```mermaid
+sequenceDiagram
+    participant User as Claude Code User
+    participant CM as claude-mem plugin
+    participant DB as Local SQLite
+    participant MFC as memforge-client
+    participant API as MemForge Server
+    participant VDB as Vector DB
+
+    User->>CM: Create observation
+    CM->>DB: Store locally
+
+    loop Every 2 seconds
+        MFC->>DB: Poll new observations (read-only)
+        DB-->>MFC: Return new records
+        MFC->>API: POST /api/sync/push + API Key
+        API->>VDB: Store + Generate embeddings
+        VDB-->>API: Success
+        API-->>MFC: Sync confirmed
+    end
+
+    User->>API: Search (MCP tools)
+    API->>VDB: Hybrid search (FTS + Vector)
+    VDB-->>API: Ranked results
+    API-->>User: Return observations
+```
 
 ---
 
