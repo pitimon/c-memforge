@@ -161,30 +161,35 @@ To use your own MemForge server:
 
 ## Architecture
 
-### Claude Code (with Sync)
+```mermaid
+graph TB
+    subgraph "Local Machine"
+        CM[claude-mem plugin<br/>SQLite Database]
+        MFC[memforge-client<br/>Sync Service]
+    end
 
+    subgraph "Remote Server"
+        API[MemForge API<br/>memclaude.thaicloud.ai]
+        VDB[(Vector DB<br/>Memgraph)]
+    end
+
+    CM -->|Poll every 2s<br/>Read-only| MFC
+    MFC -->|HTTPS + API Key<br/>POST /api/sync/push| API
+    API --> VDB
+
+    User[Claude Code] -.->|14 MCP Tools<br/>Search & Retrieve| API
+
+    style CM fill:#e1f5ff
+    style MFC fill:#fff4e1
+    style API fill:#ffe1e1
+    style VDB fill:#f0e1ff
 ```
-┌─────────────────────────────────────────────────────────┐
-│ claude-mem plugin (local)                               │
-│ SQLite: ~/.claude-mem/claude-mem.db                     │
-└─────────────────────────────────────────────────────────┘
-                      ▲
-                      │ readonly query (every 2s)
-                      │
-┌─────────────────────┴───────────────────────────────────┐
-│ memforge-client (this plugin)                           │
-│ DatabaseWatcher → polls new observations                │
-│ RemoteSync → POST /api/sync/push                        │
-│ PendingQueue → retry failed syncs                       │
-└─────────────────────┬───────────────────────────────────┘
-                      │ HTTPS + X-API-Key
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│ memclaude.thaicloud.ai                                  │
-│ POST /api/sync/push → receive & store                   │
-│ GET /api/search/* → semantic search                     │
-└─────────────────────────────────────────────────────────┘
-```
+
+**Components:**
+- **claude-mem plugin**: Local SQLite database storing observations
+- **memforge-client**: Sync service that polls local DB every 2s and pushes to remote
+- **MemForge API**: Remote server handling sync and search requests
+- **Vector DB**: Memgraph database with semantic search capabilities
 
 ---
 
