@@ -320,7 +320,7 @@ The sync service uses read-only mode and should not conflict with claude-mem. If
 
 ## Updating
 
-### Claude Code
+### Step 1: Update marketplace cache
 
 ```bash
 claude plugin marketplace update pitimon-c-memforge
@@ -330,6 +330,29 @@ Or inside Claude Code:
 ```
 /plugin marketplace update pitimon-c-memforge
 ```
+
+### Step 2: Re-install plugin (copies updated code to cache)
+
+```bash
+claude plugin install memforge-client@pitimon-c-memforge
+```
+
+### Step 3: Re-install dependencies
+
+```bash
+cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
+bun install
+```
+
+### Step 4: Re-run setup (recommended)
+
+```bash
+bun run setup "your-api-key"
+```
+
+This updates the SessionStart hook command if paths have changed. Your existing config at `~/.memforge/config.json` is preserved — only the hook is refreshed.
+
+> **Note:** If you skip step 4, your existing config and hooks will continue to work. Re-running setup is only needed when the plugin updates hook behavior or bun path resolution.
 
 ---
 
