@@ -103,14 +103,26 @@ function registerHooks(): void {
   const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
   const sessionStart = (hooks.SessionStart ?? []) as Array<Record<string, unknown>>;
 
-  // Check if our hook is already registered
-  const alreadyRegistered = sessionStart.some((entry) => {
+  // Check if our hook is already registered and update command if needed
+  const existingIndex = sessionStart.findIndex((entry) => {
     const entryHooks = entry.hooks as Array<Record<string, unknown>> | undefined;
     return entryHooks?.some((h) => typeof h.command === 'string' && h.command.includes('sync-manager.ts'));
   });
 
-  if (alreadyRegistered) {
-    console.log('  SessionStart hook already registered');
+  if (existingIndex >= 0) {
+    // Update existing hook command (e.g. bun path changed)
+    const existingEntry = sessionStart[existingIndex];
+    const entryHooks = existingEntry.hooks as Array<Record<string, unknown>>;
+    const hookObj = entryHooks.find((h) => typeof h.command === 'string' && h.command.includes('sync-manager.ts'));
+    if (hookObj && hookObj.command !== hookCommand) {
+      hookObj.command = hookCommand;
+      hooks.SessionStart = sessionStart;
+      settings.hooks = hooks;
+      writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
+      console.log('  SessionStart hook updated with current bun path');
+    } else {
+      console.log('  SessionStart hook already registered');
+    }
     removeStopHook(settings);
     return;
   }
