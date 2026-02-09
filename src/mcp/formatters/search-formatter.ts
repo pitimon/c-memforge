@@ -10,9 +10,10 @@ import type { SearchResponse } from '../types';
  * Format FTS search results as markdown.
  *
  * @param data - Search API response
+ * @param offset - Pagination offset if provided
  * @returns Formatted markdown string
  */
-export function formatSearchResults(data: SearchResponse): string {
+export function formatSearchResults(data: SearchResponse, offset?: number): string {
   const { query, expanded_query, candidates_count, results_count, duration_ms, results } = data;
 
   let output = `## Search Results\n\n`;
@@ -20,7 +21,10 @@ export function formatSearchResults(data: SearchResponse): string {
   if (expanded_query) output += `**Expanded:** ${expanded_query}\n`;
   output += `**Found:** ${results?.length || results_count || 0} results`;
   if (candidates_count) output += ` from ${candidates_count} candidates`;
-  output += ` (${Math.round(duration_ms || 0)}ms)\n\n`;
+  output += `\n`;
+  output += `**Duration:** ${Math.round(duration_ms || 0)}ms\n`;
+  if (offset && offset > 0) output += `**Offset:** ${offset}\n`;
+  output += `\n`;
 
   if (!results || results.length === 0) {
     output += `_No results found_\n`;
@@ -44,9 +48,10 @@ export function formatSearchResults(data: SearchResponse): string {
  * Format hybrid search results as markdown.
  *
  * @param data - Hybrid search API response
+ * @param offset - Pagination offset if provided
  * @returns Formatted markdown string
  */
-export function formatHybridResults(data: SearchResponse): string {
+export function formatHybridResults(data: SearchResponse, offset?: number): string {
   const { query, method, vector_weight, fts_weight, results_count, duration_ms, results } = data;
 
   let output = `## Hybrid Search Results\n\n`;
@@ -56,7 +61,10 @@ export function formatHybridResults(data: SearchResponse): string {
     output += ` (vector: ${(vector_weight * 100).toFixed(0)}%, FTS: ${((fts_weight || 1 - vector_weight) * 100).toFixed(0)}%)`;
   }
   output += `\n`;
-  output += `**Found:** ${results?.length || results_count || 0} results (${Math.round(duration_ms || 0)}ms)\n\n`;
+  output += `**Found:** ${results?.length || results_count || 0} results\n`;
+  output += `**Duration:** ${Math.round(duration_ms || 0)}ms\n`;
+  if (offset && offset > 0) output += `**Offset:** ${offset}\n`;
+  output += `\n`;
 
   if (!results || results.length === 0) {
     output += `_No results found_\n`;
@@ -83,9 +91,10 @@ export function formatHybridResults(data: SearchResponse): string {
  * Format vector search results as markdown.
  *
  * @param data - Vector search API response
+ * @param offset - Pagination offset if provided
  * @returns Formatted markdown string
  */
-export function formatVectorResults(data: SearchResponse): string {
+export function formatVectorResults(data: SearchResponse, offset?: number): string {
   const { query, method, results_count, duration_ms, results, embeddings_count } = data;
 
   let output = `## Vector Search Results\n\n`;
@@ -93,7 +102,10 @@ export function formatVectorResults(data: SearchResponse): string {
   if (method) output += `**Method:** ${method} (embedding similarity)\n`;
   output += `**Found:** ${results?.length || results_count || 0} results`;
   if (embeddings_count) output += ` from ${embeddings_count} embeddings`;
-  output += ` (${Math.round(duration_ms || 0)}ms)\n\n`;
+  output += `\n`;
+  output += `**Duration:** ${Math.round(duration_ms || 0)}ms\n`;
+  if (offset && offset > 0) output += `**Offset:** ${offset}\n`;
+  output += `\n`;
 
   if (!results || results.length === 0) {
     output += `_No results found_\n`;

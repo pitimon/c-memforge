@@ -6,7 +6,7 @@
 
 MemForge Client is a companion plugin that connects to the [MemForge](https://memclaude.thaicloud.ai) server, providing:
 
-- **14 MCP tools** for semantic search, observation retrieval, and memory snapshots
+- **15 MCP tools** for semantic search, observation retrieval, memory snapshots, and diagnostics
 - **Real-time sync** from local claude-mem database to remote server
 - **Hybrid search** combining vector embeddings and full-text search
 - **Knowledge graph** with entity lookup and triplet queries
@@ -28,8 +28,8 @@ MemForge Client is a companion plugin that connects to the [MemForge](https://me
 ### Option 1: Claude Code CLI (Recommended)
 
 ```bash
-# Step 1: Add the marketplace
-claude plugin marketplace add pitimon/c-memforge
+# Step 1: Add the marketplace (HTTPS URL recommended)
+claude plugin marketplace add https://github.com/pitimon/c-memforge.git
 
 # Step 2: Install the plugin
 claude plugin install memforge-client@pitimon-c-memforge
@@ -41,10 +41,12 @@ bun run setup "your-api-key"
 
 Get your API key at: https://memclaude.thaicloud.ai/settings
 
+> **Note:** The setup script automatically registers the sync hook in `~/.claude/settings.json` and saves your config to `~/.memforge/config.json`.
+
 ### Option 2: Inside Claude Code
 
 ```
-/plugin marketplace add pitimon/c-memforge
+/plugin marketplace add https://github.com/pitimon/c-memforge.git
 ```
 
 Then configure in terminal:
@@ -84,18 +86,28 @@ The sync service:
 - Retries failed syncs automatically
 - Runs in read-only mode (no conflicts with claude-mem)
 
+> **Note:** If you ran `bun run setup`, the sync service starts automatically on each Claude Code session via the registered SessionStart hook.
+
 ---
 
 ## MCP Tools
+
+### Diagnostic Tools
+
+| Tool | Description |
+|------|-------------|
+| `mem_status` | Check config, connectivity, auth validity, and latency |
 
 ### Search Tools
 
 | Tool | Description | Recommendation |
 |------|-------------|----------------|
-| `mem_search` | Full-text search with filters | ⭐ Most reliable |
+| `mem_search` | Full-text search with filters | Fast (1-3s) |
 | `mem_hybrid_search` | Hybrid search with RRF ranking | Use `vector_weight=0.2` |
 | `mem_semantic_search` | Hybrid with mode selection | Flexible |
-| `mem_vector_search` | Pure vector/embedding search | Use with caution |
+| `mem_vector_search` | Pure vector/embedding search | Slowest (10-38s) |
+
+All search tools support `offset` parameter for pagination.
 
 ### Observation Tools
 
@@ -115,25 +127,26 @@ The sync service:
 
 ### Snapshot Tools
 
-| Tool | Description |
-|------|-------------|
-| `mem_snapshot_create` | Create memory snapshot |
-| `mem_snapshot_list` | List all snapshots |
-| `mem_snapshot_restore` | Restore from snapshot |
-| `mem_snapshot_delete` | Delete a snapshot |
+| Tool | Description | Access |
+|------|-------------|--------|
+| `mem_snapshot_create` | Create memory snapshot | All |
+| `mem_snapshot_list` | List all snapshots | All |
+| `mem_snapshot_restore` | Restore from snapshot | Admin only |
+| `mem_snapshot_delete` | Delete a snapshot | Admin only |
 
 ---
 
 ## Configuration
 
-Configuration is stored in `config.local.json` (gitignored):
+Configuration is stored in `~/.memforge/config.json`:
 
 ```json
 {
   "apiKey": "your-api-key",
   "serverUrl": "https://memclaude.thaicloud.ai",
   "syncEnabled": true,
-  "pollInterval": 2000
+  "pollInterval": 2000,
+  "role": "client"
 }
 ```
 
@@ -145,6 +158,7 @@ Configuration is stored in `config.local.json` (gitignored):
 | `serverUrl` | MemForge server URL | `https://memclaude.thaicloud.ai` |
 | `syncEnabled` | Enable real-time sync | `true` |
 | `pollInterval` | Sync poll interval in ms | `2000` |
+| `role` | Access level (`client` or `admin`) | `client` |
 
 ### Self-Hosted Server
 
@@ -156,6 +170,24 @@ To use your own MemForge server:
   "serverUrl": "https://your-server.com"
 }
 ```
+
+---
+
+## Search Performance Tips
+
+Search latency varies by mode. Choose the right mode for your needs:
+
+| Mode | Typical Latency | Best For |
+|------|----------------|----------|
+| `fts` (full-text) | 1-3s | Keyword search, fastest |
+| `hybrid` | 5-15s | Balanced relevance |
+| `vector` | 10-38s | Semantic similarity, slowest |
+
+**Tips for faster searches:**
+- Use `mode: "fts"` in `mem_semantic_search` for fast keyword search
+- Add `dateStart`/`dateEnd` filters to narrow results
+- Use lower `limit` values (5-10 instead of 50)
+- Add `tz` parameter to avoid timezone mismatches in date filters
 
 ---
 
@@ -179,7 +211,7 @@ graph TB
     MFC -->|HTTPS + API Key<br/>POST /api/sync/push| API
     API --> VDB
 
-    User[Claude Code] -.->|14 MCP Tools<br/>Search & Retrieve| API
+    User[Claude Code] -.->|15 MCP Tools<br/>Search & Retrieve| API
 
     style CM fill:#1a365d,stroke:#2d3748,stroke-width:2px,color:#fff
     style MFC fill:#2f855a,stroke:#276749,stroke-width:2px,color:#fff
@@ -240,7 +272,7 @@ sequenceDiagram
 
 ### "Remote search not configured"
 
-Run `bun run setup` to configure your API key.
+Run `bun run setup` to configure your API key, or use `mem_status` tool to diagnose.
 
 ### "Required: thedotmack/claude-mem plugin"
 
@@ -257,12 +289,28 @@ curl -fsSL https://bun.sh/install | bash
 source ~/.bashrc  # or restart terminal
 ```
 
+### Installation fails with SSH error
+
+If `claude plugin marketplace add pitimon/c-memforge` fails with an SSH error, use the HTTPS URL instead:
+
+```bash
+claude plugin marketplace add https://github.com/pitimon/c-memforge.git
+```
+
+Or configure git to use HTTPS for all GitHub operations:
+```bash
+git config --global url."https://github.com/".insteadOf git@github.com:
+```
+
+This is a known Claude Code issue ([#9719](https://github.com/anthropics/claude-code/issues/9719)).
+
 ### Sync not working
 
-1. Check if sync is enabled: `cat config.local.json`
+1. Check config: `cat ~/.memforge/config.json`
 2. Verify API key is correct
 3. Check server connectivity: `curl https://memclaude.thaicloud.ai/health`
 4. Check sync logs when running `bun run sync`
+5. Use `mem_status` tool for diagnostics
 
 ### Database locked
 

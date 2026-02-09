@@ -5,6 +5,7 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
+import { homedir } from 'os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import type { ToolResponse } from './types';
@@ -12,7 +13,10 @@ import type { ToolResponse } from './types';
 // Get plugin root directory
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(__dirname, '../..');
-const CONFIG_PATH = join(PLUGIN_ROOT, 'config.local.json');
+
+// Canonical config location
+const CANONICAL_CONFIG = join(homedir(), '.memforge', 'config.json');
+const LEGACY_CONFIG = join(PLUGIN_ROOT, 'config.local.json');
 
 // API Configuration
 const DEFAULT_REMOTE_URL = 'https://memclaude.thaicloud.ai';
@@ -23,24 +27,46 @@ const SEARCH_TIMEOUT_MS = 60000; // 60 seconds for search operations (embedding 
 let remoteApiKey = process.env.CLAUDE_MEM_API_KEY || '';
 let remoteApiUrl = process.env.CLAUDE_MEM_REMOTE_URL || DEFAULT_REMOTE_URL;
 
+// Role-based access control
+let pluginRole: 'client' | 'admin' = 'client';
+
+// Track which config was loaded for diagnostics
+let configSource: string | null = null;
+
 /** Plugin config interface */
 interface PluginConfig {
   apiKey?: string;
   serverUrl?: string;
   syncEnabled?: boolean;
   pollInterval?: number;
+  role?: 'client' | 'admin';
 }
 
-/** Load config from plugin's config.local.json */
-function loadPluginConfig(): PluginConfig | null {
-  try {
-    if (existsSync(CONFIG_PATH)) {
-      return JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
-    }
-  } catch {
-    // Config not found or invalid
+/**
+ * Resolve config file path with fallback.
+ * Priority: ~/.memforge/config.json > PLUGIN_ROOT/config.local.json
+ */
+export function resolveConfigPath(): string | null {
+  if (existsSync(CANONICAL_CONFIG)) {
+    return CANONICAL_CONFIG;
+  }
+  if (existsSync(LEGACY_CONFIG)) {
+    return LEGACY_CONFIG;
   }
   return null;
+}
+
+/** Load config from resolved path */
+function loadPluginConfig(): PluginConfig | null {
+  const configPath = resolveConfigPath();
+  if (!configPath) return null;
+
+  try {
+    configSource = configPath;
+    return JSON.parse(readFileSync(configPath, 'utf-8'));
+  } catch {
+    return null;
+  }
 }
 
 /** Initialize API key from plugin config or fallback to claude-mem settings */
@@ -52,6 +78,10 @@ export function initializeApiKey(): void {
     if (pluginConfig.serverUrl) {
       remoteApiUrl = pluginConfig.serverUrl;
     }
+    if (pluginConfig.role) {
+      pluginRole = pluginConfig.role;
+    }
+    process.stderr.write(`[memforge] Config loaded from: ${configSource}\n`);
     return;
   }
 
@@ -62,10 +92,21 @@ export function initializeApiKey(): void {
       const fs = require('fs');
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
       remoteApiKey = settings.CLAUDE_MEM_API_KEY || '';
+      configSource = settingsPath;
     } catch {
       // Settings not found, remote will be disabled
     }
   }
+}
+
+/** Get current plugin role */
+export function getRole(): 'client' | 'admin' {
+  return pluginRole;
+}
+
+/** Get config source path for diagnostics */
+export function getConfigSource(): string | null {
+  return configSource;
 }
 
 /** Check if remote API is enabled */

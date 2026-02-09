@@ -6,17 +6,15 @@
  * and syncs them to the remote server.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { Database } from 'bun:sqlite';
 import { remoteSync } from './remote-sync';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PLUGIN_ROOT = join(__dirname, '../..');
+const MEMFORGE_DIR = join(homedir(), '.memforge');
 const DB_PATH = join(homedir(), '.claude-mem/claude-mem.db');
-const WATERMARK_PATH = join(PLUGIN_ROOT, '.sync-watermark.json');
+const WATERMARK_PATH = join(MEMFORGE_DIR, '.sync-watermark.json');
 const DEFAULT_POLL_INTERVAL = 2000; // 2 seconds
 
 interface Watermark {
@@ -35,6 +33,9 @@ function loadWatermark(): Watermark | null {
 }
 
 function saveWatermark(obsId: number, sumId: number): void {
+  if (!existsSync(MEMFORGE_DIR)) {
+    mkdirSync(MEMFORGE_DIR, { recursive: true });
+  }
   const watermark: Watermark = {
     lastObservationId: obsId,
     lastSummaryId: sumId,

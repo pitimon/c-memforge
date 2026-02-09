@@ -2,5 +2,6 @@
   "apiKey": "",
   "serverUrl": "https://memclaude.thaicloud.ai",
   "syncEnabled": true,
-  "pollInterval": 2000
+  "pollInterval": 2000,
+  "role": "client"
 }

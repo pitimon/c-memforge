@@ -36,6 +36,13 @@ export const memSnapshotCreate: ToolDefinition = {
       return wrapSuccess(formatSnapshotCreate(data));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (message.toLowerCase().includes('too many observations') || message.toLowerCase().includes('too large')) {
+        return wrapError(new Error(
+          `Snapshot too large: ${message}\n\n` +
+          `**Suggestion:** Contact your administrator to create the snapshot server-side, ` +
+          `or wait for a quieter period with fewer active observations.`
+        ));
+      }
       return wrapError(new Error(`Error creating snapshot: ${message}`));
     }
   },

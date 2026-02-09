@@ -6,12 +6,11 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
 import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PLUGIN_ROOT = join(__dirname, '../..');
-const QUEUE_PATH = join(PLUGIN_ROOT, '.sync-queue.json');
+const MEMFORGE_DIR = join(homedir(), '.memforge');
+const QUEUE_PATH = join(MEMFORGE_DIR, '.sync-queue.json');
 
 interface QueueItem {
   id: number;

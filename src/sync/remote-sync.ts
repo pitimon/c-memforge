@@ -4,14 +4,9 @@
  * Handles syncing observations from local claude-mem to remote server.
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
 import { pendingQueue } from './pending-queue';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PLUGIN_ROOT = join(__dirname, '../..');
-const CONFIG_PATH = join(PLUGIN_ROOT, 'config.local.json');
+import { resolveConfigPath } from '../mcp/api-client';
 
 interface Config {
   apiKey: string;
@@ -36,16 +31,17 @@ export class RemoteSync {
   }
 
   /**
-   * Load configuration from plugin's config.local.json.
+   * Load configuration from resolved config path.
    */
   private loadConfig(): void {
-    if (!existsSync(CONFIG_PATH)) {
+    const configPath = resolveConfigPath();
+    if (!configPath) {
       console.error('Config not found. Run: bun run setup');
       return;
     }
 
     try {
-      const config: Config = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+      const config: Config = JSON.parse(readFileSync(configPath, 'utf-8'));
       if (config.apiKey && config.serverUrl) {
         this.config = config;
       }
@@ -200,7 +196,6 @@ export class RemoteSync {
       });
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
         return { synced: 0, failed: summaries.length };
       }
 

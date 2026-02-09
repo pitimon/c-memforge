@@ -11,18 +11,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/src/sync/sync-manager.ts\" stop",
-            "timeout": 15
-          }
-        ]
-      }
     ]
   }
 }

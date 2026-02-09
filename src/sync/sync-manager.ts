@@ -15,6 +15,7 @@ import { join, dirname } from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { openSync } from 'fs';
+import { resolveConfigPath } from '../mcp/api-client';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(__dirname, '../..');
@@ -22,7 +23,6 @@ const CLAUDE_MEM_DIR = join(homedir(), '.claude-mem');
 const PID_FILE = join(CLAUDE_MEM_DIR, 'memforge-sync.pid');
 const LOG_FILE = join(CLAUDE_MEM_DIR, 'memforge-sync.log');
 const DB_WATCHER_PATH = join(__dirname, 'db-watcher.ts');
-const CONFIG_PATH = join(PLUGIN_ROOT, 'config.local.json');
 
 interface PidInfo {
   pid: number;
@@ -79,14 +79,15 @@ function isProcessAlive(pid: number): boolean {
  */
 function start(): void {
   // Check config exists
-  if (!existsSync(CONFIG_PATH)) {
+  const configPath = resolveConfigPath();
+  if (!configPath) {
     hookResponse('Sync not configured. Run: bun run setup');
     return;
   }
 
   // Check if sync is enabled in config
   try {
-    const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+    const config = JSON.parse(readFileSync(configPath, 'utf-8'));
     if (!config.syncEnabled) {
       hookResponse('Sync disabled in config');
       return;

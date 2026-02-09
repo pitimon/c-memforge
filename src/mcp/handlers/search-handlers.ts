@@ -21,17 +21,18 @@ async function callSearchAPI(
 ): Promise<ToolResponse> {
   try {
     const data = await callRemoteAPI(endpoint, params) as SearchResponse;
+    const offset = typeof params.offset === 'number' ? params.offset : undefined;
 
     if (endpoint === '/search' && data.results) {
-      return wrapSuccess(formatSearchResults(data));
+      return wrapSuccess(formatSearchResults(data, offset));
     }
 
     if (endpoint === '/hybrid' && data.results) {
-      return wrapSuccess(formatHybridResults(data));
+      return wrapSuccess(formatHybridResults(data, offset));
     }
 
     if (endpoint === '/vector' && data.results) {
-      return wrapSuccess(formatVectorResults(data));
+      return wrapSuccess(formatVectorResults(data, offset));
     }
 
     return wrapSuccess(JSON.stringify(data, null, 2));
@@ -76,6 +77,10 @@ export const memSemanticSearch: ToolDefinition = {
         type: 'string',
         description: 'Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.',
       },
+      offset: {
+        type: 'number',
+        description: 'Skip first N results for pagination (default: 0)',
+      },
     },
     required: ['q'],
   },
@@ -85,6 +90,7 @@ export const memSemanticSearch: ToolDefinition = {
     return await callSearchAPI(endpoint, {
       q: args.q,
       limit: args.limit || 10,
+      offset: args.offset,
       vector_weight: args.vector_weight || 0.5,
       skip_rerank: mode === 'fts',
       dateStart: args.dateStart,
@@ -125,6 +131,10 @@ export const memHybridSearch: ToolDefinition = {
         type: 'string',
         description: 'Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.',
       },
+      offset: {
+        type: 'number',
+        description: 'Skip first N results for pagination (default: 0)',
+      },
     },
     required: ['q'],
   },
@@ -132,6 +142,7 @@ export const memHybridSearch: ToolDefinition = {
     return await callSearchAPI('/hybrid', {
       q: args.q,
       limit: args.limit || 10,
+      offset: args.offset,
       vector_weight: args.vector_weight || 0.5,
       dateStart: args.dateStart,
       dateEnd: args.dateEnd,
@@ -167,6 +178,10 @@ export const memVectorSearch: ToolDefinition = {
         type: 'string',
         description: 'Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.',
       },
+      offset: {
+        type: 'number',
+        description: 'Skip first N results for pagination (default: 0)',
+      },
     },
     required: ['q'],
   },
@@ -174,6 +189,7 @@ export const memVectorSearch: ToolDefinition = {
     return await callSearchAPI('/vector', {
       q: args.q,
       limit: args.limit || 10,
+      offset: args.offset,
       dateStart: args.dateStart,
       dateEnd: args.dateEnd,
       tz: args.tz,
@@ -216,6 +232,10 @@ export const memSearch: ToolDefinition = {
         type: 'string',
         description: 'Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.',
       },
+      offset: {
+        type: 'number',
+        description: 'Skip first N results for pagination (default: 0)',
+      },
     },
     required: ['query'],
   },
@@ -223,6 +243,7 @@ export const memSearch: ToolDefinition = {
     return await callSearchAPI('/search', {
       q: args.query,
       limit: args.limit || 10,
+      offset: args.offset,
       project: args.project,
       type: args.type,
       dateStart: args.dateStart,
