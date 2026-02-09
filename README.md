@@ -34,8 +34,11 @@ claude plugin marketplace add https://github.com/pitimon/c-memforge.git
 # Step 2: Install the plugin
 claude plugin install memforge-client@pitimon-c-memforge
 
-# Step 3: Configure API key
-cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
+# Step 3: Install dependencies
+cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
+bun install
+
+# Step 4: Configure API key
 bun run setup "your-api-key"
 ```
 
@@ -52,7 +55,7 @@ Get your API key at: https://memclaude.thaicloud.ai/settings
 Then configure in terminal:
 
 ```bash
-cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
+cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
 bun install
 bun run setup "your-api-key"
 ```
@@ -76,7 +79,7 @@ Then add to Claude Code:
 To sync your local observations to the remote server:
 
 ```bash
-cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
+cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
 bun run sync
 ```
 
