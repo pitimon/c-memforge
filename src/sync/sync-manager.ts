@@ -24,6 +24,31 @@ const PID_FILE = join(CLAUDE_MEM_DIR, 'memforge-sync.pid');
 const LOG_FILE = join(CLAUDE_MEM_DIR, 'memforge-sync.log');
 const DB_WATCHER_PATH = join(__dirname, 'db-watcher.ts');
 
+/**
+ * Resolve the full path to the bun executable.
+ * Checks process.execPath (when run via bun), then common install locations.
+ */
+function resolveBunPath(): string {
+  // If currently running under bun, use the same executable
+  if (process.execPath && process.execPath.endsWith('bun')) {
+    return process.execPath;
+  }
+
+  // Check common bun install locations
+  const candidates = [
+    join(homedir(), '.bun', 'bin', 'bun'),
+    '/usr/local/bin/bun',
+    '/usr/bin/bun',
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+
+  // Fallback to bare 'bun' (hope it's in PATH)
+  return 'bun';
+}
+
 interface PidInfo {
   pid: number;
   startedAt: string;
@@ -114,8 +139,9 @@ function start(): void {
   // Open log file for stdout/stderr redirection
   const logFd = openSync(LOG_FILE, 'a');
 
-  // Spawn detached watcher process
-  const child = spawn('bun', [DB_WATCHER_PATH], {
+  // Spawn detached watcher process with resolved bun path
+  const bunPath = resolveBunPath();
+  const child = spawn(bunPath, [DB_WATCHER_PATH], {
     detached: true,
     stdio: ['ignore', logFd, logFd],
     cwd: PLUGIN_ROOT,

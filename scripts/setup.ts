@@ -24,6 +24,24 @@ const LEGACY_CONFIG = join(PLUGIN_ROOT, 'config.local.json');
 const CONFIG_EXAMPLE = join(PLUGIN_ROOT, 'config.example.json');
 const CLAUDE_SETTINGS_PATH = join(homedir(), '.claude', 'settings.json');
 
+/**
+ * Resolve the full path to the bun executable for hook commands.
+ */
+function resolveBunPath(): string {
+  if (process.execPath && process.execPath.endsWith('bun')) {
+    return process.execPath;
+  }
+  const candidates = [
+    join(homedir(), '.bun', 'bin', 'bun'),
+    '/usr/local/bin/bun',
+    '/usr/bin/bun',
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return 'bun';
+}
+
 interface Config {
   apiKey: string;
   serverUrl: string;
@@ -68,7 +86,8 @@ function migrateConfigIfNeeded(): void {
  * Register SessionStart hook in ~/.claude/settings.json (idempotent).
  */
 function registerHooks(): void {
-  const hookCommand = `bun "${PLUGIN_ROOT}/src/sync/sync-manager.ts" start`;
+  const bunPath = resolveBunPath();
+  const hookCommand = `${bunPath} "${PLUGIN_ROOT}/src/sync/sync-manager.ts" start`;
 
   let settings: Record<string, unknown> = {};
   if (existsSync(CLAUDE_SETTINGS_PATH)) {
