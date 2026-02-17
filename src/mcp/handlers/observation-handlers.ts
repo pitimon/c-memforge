@@ -31,7 +31,7 @@ export const memSemanticGet: ToolDefinition = {
   },
   handler: async (args) => {
     try {
-      const data = (await fetchObservationsByIds([args.id as number])) as {
+      const data = (await fetchObservationsByIds([Number(args.id)])) as {
         observations?: Observation[];
       };
       const observation = data.observations?.[0];
@@ -140,7 +140,10 @@ export const memGetObservations: ToolDefinition = {
   },
   handler: async (args) => {
     try {
-      const data = (await fetchObservationsByIds(args.ids as number[])) as {
+      const ids = Array.isArray(args.ids)
+        ? (args.ids as unknown[]).map(Number)
+        : [Number(args.ids)];
+      const data = (await fetchObservationsByIds(ids)) as {
         observations?: Observation[];
       };
 
