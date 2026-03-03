@@ -2,16 +2,17 @@
  * MCP Handlers Index
  *
  * Re-export all handlers for convenient imports.
+ * Note: Snapshot tools removed from client plugin — clients should not have
+ * power to create/restore/delete memory snapshots. Server-side MCP retains
+ * full snapshot capabilities for admin operations.
  */
 
-import type { ToolDefinition } from '../types';
-import { getRole } from '../api-client';
+import type { ToolDefinition } from "../types";
 
-export { searchHandlers } from './search-handlers';
-export { observationHandlers } from './observation-handlers';
-export { entityHandlers } from './entity-handlers';
-export { snapshotHandlers } from './snapshot-handlers';
-export { statusHandlers } from './status-handler';
+export { searchHandlers } from "./search-handlers";
+export { observationHandlers } from "./observation-handlers";
+export { entityHandlers } from "./entity-handlers";
+export { statusHandlers } from "./status-handler";
 
 // Re-export individual handlers for direct imports
 export {
@@ -19,58 +20,35 @@ export {
   memHybridSearch,
   memVectorSearch,
   memSearch,
-} from './search-handlers';
+} from "./search-handlers";
 
 export {
   memSemanticGet,
   memSemanticRecent,
   memTimeline,
   memGetObservations,
-} from './observation-handlers';
+} from "./observation-handlers";
 
-export {
-  memEntityLookup,
-  memTripletsQuery,
-} from './entity-handlers';
+export { memEntityLookup, memTripletsQuery } from "./entity-handlers";
 
-export {
-  memSnapshotCreate,
-  memSnapshotList,
-  memSnapshotRestore,
-  memSnapshotDelete,
-} from './snapshot-handlers';
-
-export { memStatus } from './status-handler';
-
-/** Tools restricted to admin role */
-const ADMIN_ONLY_TOOLS = new Set(['mem_snapshot_restore', 'mem_snapshot_delete']);
+export { memStatus } from "./status-handler";
 
 /**
  * Get all tool definitions for MCP server registration.
- * Filters admin-only tools based on configured role.
  *
- * @returns Array of all tool definitions
+ * @returns Array of all tool definitions (read/search/browse only)
  */
 export function getAllTools(): ToolDefinition[] {
   // Import directly to avoid circular dependencies
-  const { searchHandlers } = require('./search-handlers');
-  const { observationHandlers } = require('./observation-handlers');
-  const { entityHandlers } = require('./entity-handlers');
-  const { snapshotHandlers } = require('./snapshot-handlers');
-  const { statusHandlers } = require('./status-handler');
+  const { searchHandlers } = require("./search-handlers");
+  const { observationHandlers } = require("./observation-handlers");
+  const { entityHandlers } = require("./entity-handlers");
+  const { statusHandlers } = require("./status-handler");
 
-  const allTools: ToolDefinition[] = [
+  return [
     ...statusHandlers,
     ...searchHandlers,
     ...observationHandlers,
     ...entityHandlers,
-    ...snapshotHandlers,
   ];
-
-  const role = getRole();
-  if (role === 'admin') {
-    return allTools;
-  }
-
-  return allTools.filter((tool) => !ADMIN_ONLY_TOOLS.has(tool.name));
 }
