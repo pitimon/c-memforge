@@ -212,6 +212,11 @@ export const memVectorSearch: ToolDefinition = {
         type: "number",
         description: "Skip first N results for pagination (default: 0)",
       },
+      include_shared: {
+        type: "boolean",
+        description:
+          "Include observations shared with you by other users (default: false)",
+      },
     },
     required: ["q"],
   },
@@ -223,6 +228,7 @@ export const memVectorSearch: ToolDefinition = {
       dateStart: args.dateStart,
       dateEnd: args.dateEnd,
       tz: args.tz,
+      include_shared: args.include_shared,
     });
   },
 };
