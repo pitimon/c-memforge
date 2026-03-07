@@ -4,9 +4,13 @@
  * Handlers for search-related MCP tools.
  */
 
-import type { ToolDefinition, ToolResponse, SearchResponse } from '../types';
-import { callRemoteAPI, wrapError, wrapSuccess } from '../api-client';
-import { formatSearchResults, formatHybridResults, formatVectorResults } from '../formatters';
+import type { ToolDefinition, ToolResponse, SearchResponse } from "../types";
+import { callRemoteAPI, wrapError, wrapSuccess } from "../api-client";
+import {
+  formatSearchResults,
+  formatHybridResults,
+  formatVectorResults,
+} from "../formatters";
 
 /**
  * Call search API and format results.
@@ -17,21 +21,22 @@ import { formatSearchResults, formatHybridResults, formatVectorResults } from '.
  */
 async function callSearchAPI(
   endpoint: string,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
 ): Promise<ToolResponse> {
   try {
-    const data = await callRemoteAPI(endpoint, params) as SearchResponse;
-    const offset = typeof params.offset === 'number' ? params.offset : undefined;
+    const data = (await callRemoteAPI(endpoint, params)) as SearchResponse;
+    const offset =
+      typeof params.offset === "number" ? params.offset : undefined;
 
-    if (endpoint === '/search' && data.results) {
+    if (endpoint === "/search" && data.results) {
       return wrapSuccess(formatSearchResults(data, offset));
     }
 
-    if (endpoint === '/hybrid' && data.results) {
+    if (endpoint === "/hybrid" && data.results) {
       return wrapSuccess(formatHybridResults(data, offset));
     }
 
-    if (endpoint === '/vector' && data.results) {
+    if (endpoint === "/vector" && data.results) {
       return wrapSuccess(formatVectorResults(data, offset));
     }
 
@@ -43,103 +48,124 @@ async function callSearchAPI(
 
 /** mem_semantic_search tool definition */
 export const memSemanticSearch: ToolDefinition = {
-  name: 'mem_semantic_search',
-  description: 'Hybrid search combining vector embeddings + FTS on remote server. Supports Thai and English queries with date filtering.',
+  name: "mem_semantic_search",
+  description:
+    "Hybrid search combining vector embeddings + FTS on remote server. Supports Thai and English queries with date filtering.",
   inputSchema: {
-    type: 'object',
+    type: "object",
     properties: {
       q: {
-        type: 'string',
-        description: 'Search query (required). Supports Thai and English.',
+        type: "string",
+        description: "Search query (required). Supports Thai and English.",
       },
       limit: {
-        type: 'number',
-        description: 'Max results (default: 10, max: 50)',
+        type: "number",
+        description: "Max results (default: 10, max: 50)",
       },
       mode: {
-        type: 'string',
-        enum: ['hybrid', 'fts', 'vector'],
-        description: 'Search mode: hybrid (default), fts (keyword-only), vector (semantic-only)',
+        type: "string",
+        enum: ["hybrid", "fts", "vector"],
+        description:
+          "Search mode: hybrid (default), fts (keyword-only), vector (semantic-only)",
       },
       vector_weight: {
-        type: 'number',
-        description: 'For hybrid mode: weight 0-1 (default: 0.5). Higher = favor semantic.',
+        type: "number",
+        description:
+          "For hybrid mode: weight 0-1 (default: 0.5). Higher = favor semantic.",
       },
       dateStart: {
-        type: 'string',
-        description: 'Start date filter (YYYY-MM-DD). Use with tz for timezone.',
+        type: "string",
+        description:
+          "Start date filter (YYYY-MM-DD). Use with tz for timezone.",
       },
       dateEnd: {
-        type: 'string',
-        description: 'End date filter (YYYY-MM-DD). Use with tz for timezone.',
+        type: "string",
+        description: "End date filter (YYYY-MM-DD). Use with tz for timezone.",
       },
       tz: {
-        type: 'string',
-        description: 'Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.',
+        type: "string",
+        description:
+          "Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.",
       },
       offset: {
-        type: 'number',
-        description: 'Skip first N results for pagination (default: 0)',
+        type: "number",
+        description: "Skip first N results for pagination (default: 0)",
+      },
+      include_shared: {
+        type: "boolean",
+        description:
+          "Include observations shared with you by other users (default: false)",
       },
     },
-    required: ['q'],
+    required: ["q"],
   },
   handler: async (args) => {
-    const mode = (args.mode as string) || 'hybrid';
-    const endpoint = mode === 'fts' ? '/search' : mode === 'vector' ? '/vector' : '/hybrid';
+    const mode = (args.mode as string) || "hybrid";
+    const endpoint =
+      mode === "fts" ? "/search" : mode === "vector" ? "/vector" : "/hybrid";
     return await callSearchAPI(endpoint, {
       q: args.q,
       limit: args.limit || 10,
       offset: args.offset,
       vector_weight: args.vector_weight || 0.5,
-      skip_rerank: mode === 'fts',
+      skip_rerank: mode === "fts",
       dateStart: args.dateStart,
       dateEnd: args.dateEnd,
       tz: args.tz,
+      include_shared: args.include_shared,
     });
   },
 };
 
 /** mem_hybrid_search tool definition */
 export const memHybridSearch: ToolDefinition = {
-  name: 'mem_hybrid_search',
-  description: 'Hybrid search combining vector embeddings and FTS with RRF on remote server. Supports date filtering with timezone.',
+  name: "mem_hybrid_search",
+  description:
+    "Hybrid search combining vector embeddings and FTS with RRF on remote server. Supports date filtering with timezone.",
   inputSchema: {
-    type: 'object',
+    type: "object",
     properties: {
       q: {
-        type: 'string',
-        description: 'Search query (required). Supports Thai and English.',
+        type: "string",
+        description: "Search query (required). Supports Thai and English.",
       },
       limit: {
-        type: 'number',
-        description: 'Max results (default: 10, max: 50)',
+        type: "number",
+        description: "Max results (default: 10, max: 50)",
       },
       vector_weight: {
-        type: 'number',
-        description: 'Weight for vector search 0-1 (default: 0.5). Higher = favor semantic meaning.',
+        type: "number",
+        description:
+          "Weight for vector search 0-1 (default: 0.5). Higher = favor semantic meaning.",
       },
       dateStart: {
-        type: 'string',
-        description: 'Start date filter (YYYY-MM-DD). Use with tz for timezone.',
+        type: "string",
+        description:
+          "Start date filter (YYYY-MM-DD). Use with tz for timezone.",
       },
       dateEnd: {
-        type: 'string',
-        description: 'End date filter (YYYY-MM-DD). Use with tz for timezone.',
+        type: "string",
+        description: "End date filter (YYYY-MM-DD). Use with tz for timezone.",
       },
       tz: {
-        type: 'string',
-        description: 'Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.',
+        type: "string",
+        description:
+          "Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.",
       },
       offset: {
-        type: 'number',
-        description: 'Skip first N results for pagination (default: 0)',
+        type: "number",
+        description: "Skip first N results for pagination (default: 0)",
+      },
+      include_shared: {
+        type: "boolean",
+        description:
+          "Include observations shared with you by other users (default: false)",
       },
     },
-    required: ['q'],
+    required: ["q"],
   },
   handler: async (args) => {
-    return await callSearchAPI('/hybrid', {
+    return await callSearchAPI("/hybrid", {
       q: args.q,
       limit: args.limit || 10,
       offset: args.offset,
@@ -147,46 +173,50 @@ export const memHybridSearch: ToolDefinition = {
       dateStart: args.dateStart,
       dateEnd: args.dateEnd,
       tz: args.tz,
+      include_shared: args.include_shared,
     });
   },
 };
 
 /** mem_vector_search tool definition */
 export const memVectorSearch: ToolDefinition = {
-  name: 'mem_vector_search',
-  description: 'Pure vector/embedding search on remote server. Finds semantically similar content using embeddings.',
+  name: "mem_vector_search",
+  description:
+    "Pure vector/embedding search on remote server. Finds semantically similar content using embeddings.",
   inputSchema: {
-    type: 'object',
+    type: "object",
     properties: {
       q: {
-        type: 'string',
-        description: 'Search query (required). Supports Thai and English.',
+        type: "string",
+        description: "Search query (required). Supports Thai and English.",
       },
       limit: {
-        type: 'number',
-        description: 'Max results (default: 10, max: 50)',
+        type: "number",
+        description: "Max results (default: 10, max: 50)",
       },
       dateStart: {
-        type: 'string',
-        description: 'Start date filter (YYYY-MM-DD). Use with tz for timezone.',
+        type: "string",
+        description:
+          "Start date filter (YYYY-MM-DD). Use with tz for timezone.",
       },
       dateEnd: {
-        type: 'string',
-        description: 'End date filter (YYYY-MM-DD). Use with tz for timezone.',
+        type: "string",
+        description: "End date filter (YYYY-MM-DD). Use with tz for timezone.",
       },
       tz: {
-        type: 'string',
-        description: 'Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.',
+        type: "string",
+        description:
+          "Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.",
       },
       offset: {
-        type: 'number',
-        description: 'Skip first N results for pagination (default: 0)',
+        type: "number",
+        description: "Skip first N results for pagination (default: 0)",
       },
     },
-    required: ['q'],
+    required: ["q"],
   },
   handler: async (args) => {
-    return await callSearchAPI('/vector', {
+    return await callSearchAPI("/vector", {
       q: args.q,
       limit: args.limit || 10,
       offset: args.offset,
@@ -199,48 +229,57 @@ export const memVectorSearch: ToolDefinition = {
 
 /** mem_search tool definition (plugin-compatible FTS) */
 export const memSearch: ToolDefinition = {
-  name: 'mem_search',
-  description: 'Full-text search on remote server. Returns observation IDs and metadata with date filtering support.',
+  name: "mem_search",
+  description:
+    "Full-text search on remote server. Returns observation IDs and metadata with date filtering support.",
   inputSchema: {
-    type: 'object',
+    type: "object",
     properties: {
       query: {
-        type: 'string',
-        description: 'Search query (required)',
+        type: "string",
+        description: "Search query (required)",
       },
       limit: {
-        type: 'number',
-        description: 'Max results (default: 10)',
+        type: "number",
+        description: "Max results (default: 10)",
       },
       project: {
-        type: 'string',
-        description: 'Filter by project name',
+        type: "string",
+        description: "Filter by project name",
       },
       type: {
-        type: 'string',
-        description: 'Filter by observation type (e.g., bugfix, feature, decision)',
+        type: "string",
+        description:
+          "Filter by observation type (e.g., bugfix, feature, decision)",
       },
       dateStart: {
-        type: 'string',
-        description: 'Start date filter (YYYY-MM-DD). Use with tz for timezone.',
+        type: "string",
+        description:
+          "Start date filter (YYYY-MM-DD). Use with tz for timezone.",
       },
       dateEnd: {
-        type: 'string',
-        description: 'End date filter (YYYY-MM-DD). Use with tz for timezone.',
+        type: "string",
+        description: "End date filter (YYYY-MM-DD). Use with tz for timezone.",
       },
       tz: {
-        type: 'string',
-        description: 'Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.',
+        type: "string",
+        description:
+          "Timezone offset for date filtering (e.g., +07:00, -05:00, Z). Without tz, dates are UTC.",
       },
       offset: {
-        type: 'number',
-        description: 'Skip first N results for pagination (default: 0)',
+        type: "number",
+        description: "Skip first N results for pagination (default: 0)",
+      },
+      include_shared: {
+        type: "boolean",
+        description:
+          "Include observations shared with you by other users (default: false)",
       },
     },
-    required: ['query'],
+    required: ["query"],
   },
   handler: async (args) => {
-    return await callSearchAPI('/search', {
+    return await callSearchAPI("/search", {
       q: args.query,
       limit: args.limit || 10,
       offset: args.offset,
@@ -249,6 +288,7 @@ export const memSearch: ToolDefinition = {
       dateStart: args.dateStart,
       dateEnd: args.dateEnd,
       tz: args.tz,
+      include_shared: args.include_shared,
     });
   },
 };

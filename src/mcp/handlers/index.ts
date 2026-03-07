@@ -13,6 +13,8 @@ export { searchHandlers } from "./search-handlers";
 export { observationHandlers } from "./observation-handlers";
 export { entityHandlers } from "./entity-handlers";
 export { statusHandlers } from "./status-handler";
+export { ingestHandlers } from "./ingest-handler";
+export { workflowHandlers } from "./workflow-handler";
 
 // Re-export individual handlers for direct imports
 export {
@@ -33,6 +35,9 @@ export { memEntityLookup, memTripletsQuery } from "./entity-handlers";
 
 export { memStatus } from "./status-handler";
 
+export { memIngest } from "./ingest-handler";
+export { memWorkflowSuggest } from "./workflow-handler";
+
 /**
  * Get all tool definitions for MCP server registration.
  *
@@ -44,11 +49,15 @@ export function getAllTools(): ToolDefinition[] {
   const { observationHandlers } = require("./observation-handlers");
   const { entityHandlers } = require("./entity-handlers");
   const { statusHandlers } = require("./status-handler");
+  const { ingestHandlers } = require("./ingest-handler");
+  const { workflowHandlers } = require("./workflow-handler");
 
   return [
     ...statusHandlers,
     ...searchHandlers,
     ...observationHandlers,
     ...entityHandlers,
+    ...ingestHandlers,
+    ...workflowHandlers,
   ];
 }
