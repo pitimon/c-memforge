@@ -2,8 +2,7 @@
   "mcpServers": {
     "memforge": {
       "type": "stdio",
-      "command": "bun",
-      "args": ["run", "${CLAUDE_PLUGIN_ROOT}/src/mcp/mcp-server.ts"],
+      "command": "${CLAUDE_PLUGIN_ROOT}/src/mcp/mcp-server.ts",
       "env": {
         "CLAUDE_MEM_REMOTE_URL": "https://memclaude.thaicloud.ai"
       }
