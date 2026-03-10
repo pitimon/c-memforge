@@ -4,7 +4,7 @@
  * Diagnostic tool for checking MemForge client configuration and connectivity.
  */
 
-import type { ToolDefinition } from '../types';
+import type { ToolDefinition } from "../types";
 import {
   getConfigSource,
   getRemoteUrl,
@@ -12,41 +12,41 @@ import {
   isRemoteEnabled,
   getRole,
   wrapSuccess,
-} from '../api-client';
+} from "../api-client";
 
 /**
  * Mask API key for display.
  */
 function maskKey(key: string): string {
-  if (!key) return '(not set)';
-  if (key.length <= 8) return '****';
-  return key.slice(0, 4) + '****' + key.slice(-4);
+  if (!key) return "(not set)";
+  return `configured (${key.length} chars)`;
 }
 
 /** mem_status tool definition */
 export const memStatus: ToolDefinition = {
-  name: 'mem_status',
-  description: 'Check MemForge client status: config source, API key, server connectivity, and auth validity.',
+  name: "mem_status",
+  description:
+    "Check MemForge client status: config source, API key, server connectivity, and auth validity.",
   inputSchema: {
-    type: 'object',
+    type: "object",
     properties: {},
   },
   handler: async () => {
-    const lines: string[] = ['## MemForge Client Status\n'];
+    const lines: string[] = ["## MemForge Client Status\n"];
 
     // Config source
     const source = getConfigSource();
-    lines.push(`**Config:** ${source || 'not found'}`);
+    lines.push(`**Config:** ${source || "not found"}`);
     lines.push(`**Role:** ${getRole()}`);
     lines.push(`**API Key:** ${maskKey(getApiKey())}`);
     lines.push(`**Server:** ${getRemoteUrl()}`);
-    lines.push('');
+    lines.push("");
 
     if (!isRemoteEnabled()) {
-      lines.push('**Status:** Not configured');
-      lines.push('');
+      lines.push("**Status:** Not configured");
+      lines.push("");
       lines.push('Run `bun run setup "your-api-key"` to configure.');
-      return wrapSuccess(lines.join('\n'));
+      return wrapSuccess(lines.join("\n"));
     }
 
     // Connectivity check
@@ -63,7 +63,9 @@ export const memStatus: ToolDefinition = {
       const latency = Date.now() - start;
 
       if (!healthResponse.ok) {
-        lines.push(`**Connectivity:** Server returned ${healthResponse.status}`);
+        lines.push(
+          `**Connectivity:** Server returned ${healthResponse.status}`,
+        );
         lines.push(`**Latency:** ${latency}ms`);
       } else {
         lines.push(`**Connectivity:** OK`);
@@ -72,10 +74,10 @@ export const memStatus: ToolDefinition = {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       lines.push(`**Connectivity:** Failed - ${message}`);
-      lines.push('');
-      lines.push('Check your network or server URL.');
+      lines.push("");
+      lines.push("Check your network or server URL.");
       clearTimeout(timeoutId);
-      return wrapSuccess(lines.join('\n'));
+      return wrapSuccess(lines.join("\n"));
     } finally {
       clearTimeout(timeoutId);
     }
@@ -86,7 +88,7 @@ export const memStatus: ToolDefinition = {
 
     try {
       const authResponse = await fetch(`${serverUrl}/api/stats`, {
-        headers: { 'X-API-Key': apiKey },
+        headers: { "X-API-Key": apiKey },
         signal: authController.signal,
       });
 
@@ -94,8 +96,10 @@ export const memStatus: ToolDefinition = {
         lines.push(`**Auth:** Valid`);
       } else if (authResponse.status === 401 || authResponse.status === 403) {
         lines.push(`**Auth:** Invalid API key (${authResponse.status})`);
-        lines.push('');
-        lines.push('Get a valid key at: https://memclaude.thaicloud.ai/settings');
+        lines.push("");
+        lines.push(
+          "Get a valid key at: https://memclaude.thaicloud.ai/settings",
+        );
       } else {
         lines.push(`**Auth:** Server error (${authResponse.status})`);
       }
@@ -106,7 +110,7 @@ export const memStatus: ToolDefinition = {
       clearTimeout(authTimeoutId);
     }
 
-    return wrapSuccess(lines.join('\n'));
+    return wrapSuccess(lines.join("\n"));
   },
 };
 
