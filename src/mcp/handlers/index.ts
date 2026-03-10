@@ -9,12 +9,21 @@
 
 import type { ToolDefinition } from "../types";
 
-export { searchHandlers } from "./search-handlers";
-export { observationHandlers } from "./observation-handlers";
-export { entityHandlers } from "./entity-handlers";
-export { statusHandlers } from "./status-handler";
-export { ingestHandlers } from "./ingest-handler";
-export { workflowHandlers } from "./workflow-handler";
+import { searchHandlers } from "./search-handlers";
+import { observationHandlers } from "./observation-handlers";
+import { entityHandlers } from "./entity-handlers";
+import { statusHandlers } from "./status-handler";
+import { ingestHandlers } from "./ingest-handler";
+import { workflowHandlers } from "./workflow-handler";
+
+export {
+  searchHandlers,
+  observationHandlers,
+  entityHandlers,
+  statusHandlers,
+  ingestHandlers,
+  workflowHandlers,
+};
 
 // Re-export individual handlers for direct imports
 export {
