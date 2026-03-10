@@ -28,6 +28,7 @@ import { initializeApiKey, isRemoteEnabled, getRemoteUrl } from "./api-client";
 import { getAllTools } from "./handlers";
 import { validateToolInput } from "./validation";
 import { auditLog } from "./audit-logger";
+import pkg from "../../package.json";
 
 // Redirect console.log to stderr (MCP uses stdout for JSON-RPC)
 const _originalConsoleLog = console.log;
@@ -50,7 +51,7 @@ const tools = getAllTools();
 const server = new Server(
   {
     name: "memforge-client",
-    version: "1.0.0",
+    version: pkg.version,
   },
   {
     capabilities: {

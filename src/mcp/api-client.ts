@@ -222,8 +222,39 @@ function resolveEndpoint(endpoint: string): string {
   throw new Error(`Unknown endpoint: ${endpoint}`);
 }
 
+/** Max retries for transient network errors */
+const MAX_RETRIES = 2;
+const RETRY_DELAYS_MS = [1000, 2000];
+
 /**
- * Call Remote API with timeout.
+ * Check if an error is retryable (network/TLS errors, not HTTP 4xx).
+ */
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return (
+      msg.includes("fetch failed") ||
+      msg.includes("certificate") ||
+      msg.includes("ssl") ||
+      msg.includes("tls") ||
+      msg.includes("econnreset") ||
+      msg.includes("econnrefused") ||
+      msg.includes("socket") ||
+      msg.includes("abort")
+    );
+  }
+  return false;
+}
+
+/**
+ * Sleep for a given number of milliseconds.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Call Remote API with timeout and retry for transient errors.
  *
  * @param endpoint - Local endpoint name (e.g., '/search')
  * @param params - Query parameters
@@ -244,33 +275,48 @@ export async function callRemoteAPI(
     endpoint.includes("/search");
   const timeout = isSearchEndpoint ? SEARCH_TIMEOUT_MS : REMOTE_TIMEOUT_MS;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const remoteEndpoint = resolveEndpoint(endpoint);
 
-  try {
-    const searchParams = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== null) {
-        searchParams.append(key, String(value));
-      }
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) {
+      searchParams.append(key, String(value));
     }
-
-    const remoteEndpoint = resolveEndpoint(endpoint);
-    const url = `${remoteApiUrl}${remoteEndpoint}?${searchParams}`;
-
-    const response = await fetch(url, {
-      headers: { "X-API-Key": remoteApiKey },
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Remote API error (${response.status})`);
-    }
-
-    return await response.json();
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  const url = `${remoteApiUrl}${remoteEndpoint}?${searchParams}`;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await sleep(RETRY_DELAYS_MS[attempt - 1]);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        headers: { "X-API-Key": remoteApiKey },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Remote API error (${response.status})`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableError(error) || attempt === MAX_RETRIES) {
+        throw error;
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  throw lastError;
 }
 
 /**

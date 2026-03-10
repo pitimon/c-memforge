@@ -44,14 +44,6 @@ export { memWorkflowSuggest } from "./workflow-handler";
  * @returns Array of all tool definitions (read/search/browse only)
  */
 export function getAllTools(): ToolDefinition[] {
-  // Import directly to avoid circular dependencies
-  const { searchHandlers } = require("./search-handlers");
-  const { observationHandlers } = require("./observation-handlers");
-  const { entityHandlers } = require("./entity-handlers");
-  const { statusHandlers } = require("./status-handler");
-  const { ingestHandlers } = require("./ingest-handler");
-  const { workflowHandlers } = require("./workflow-handler");
-
   return [
     ...statusHandlers,
     ...searchHandlers,
