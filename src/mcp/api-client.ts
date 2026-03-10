@@ -145,6 +145,8 @@ const BLOCKED_METADATA_HOSTS = new Set([
  */
 function isPrivateHost(hostname: string): boolean {
   return (
+    hostname === "0.0.0.0" ||
+    hostname === "[::]" ||
     /^10\./.test(hostname) ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
     /^192\.168\./.test(hostname) ||
@@ -250,6 +252,9 @@ const RETRY_DELAYS_MS = [1000, 2000];
  */
 function isRetryableError(error: unknown): boolean {
   if (error instanceof Error) {
+    // Never retry timeout aborts — they are intentional
+    if (error.name === "AbortError") return false;
+
     const msg = error.message.toLowerCase();
     return (
       msg.includes("fetch failed") ||
@@ -258,8 +263,7 @@ function isRetryableError(error: unknown): boolean {
       msg.includes("tls") ||
       msg.includes("econnreset") ||
       msg.includes("econnrefused") ||
-      msg.includes("socket") ||
-      msg.includes("abort")
+      msg.includes("socket")
     );
   }
   return false;
@@ -476,3 +480,10 @@ export function wrapSuccess(text: string): ToolResponse {
     content: [{ type: "text" as const, text }],
   };
 }
+
+// Exported for testing only
+export const _testing = {
+  validateServerUrl,
+  isPrivateHost,
+  isRetryableError,
+};
