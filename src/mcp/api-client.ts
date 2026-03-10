@@ -133,16 +133,49 @@ export function getApiKey(): string {
 /** Allowed server hostnames for SSRF protection */
 const ALLOWED_HOSTS = ["memclaude.thaicloud.ai"];
 
+/** Cloud metadata IPs that must always be blocked */
+const BLOCKED_METADATA_HOSTS = new Set([
+  "169.254.169.254", // AWS/GCP IMDS
+  "metadata.google.internal", // GCP
+  "100.100.100.200", // Alibaba Cloud
+]);
+
+/**
+ * Check if a hostname is a private/internal IP.
+ */
+function isPrivateHost(hostname: string): boolean {
+  return (
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+    /^192\.168\./.test(hostname) ||
+    /^169\.254\./.test(hostname) ||
+    hostname === "::1" ||
+    /^fc00/i.test(hostname) ||
+    /^fd/i.test(hostname) ||
+    BLOCKED_METADATA_HOSTS.has(hostname)
+  );
+}
+
 /**
  * Validate a server URL against the allowlist.
  * Allows: HTTPS to allowed hosts, or localhost/127.0.0.1 for dev.
- * Set MEMFORGE_ALLOW_CUSTOM_URL=1 to bypass for self-hosted deployments.
+ * Set MEMFORGE_ALLOW_CUSTOM_URL=1 to bypass hostname allowlist
+ * (still enforces HTTPS and blocks cloud metadata endpoints).
  */
 function validateServerUrl(url: string): boolean {
-  if (process.env.MEMFORGE_ALLOW_CUSTOM_URL === "1") return true;
-
   try {
     const parsed = new URL(url);
+
+    // Always block cloud metadata and private IPs, even with bypass
+    if (isPrivateHost(parsed.hostname)) return false;
+
+    // Bypass mode: skip hostname allowlist but enforce HTTPS
+    if (process.env.MEMFORGE_ALLOW_CUSTOM_URL === "1") {
+      if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+      }
+      return parsed.protocol === "https:";
+    }
 
     // Allow localhost for development (HTTP and HTTPS)
     if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
@@ -151,20 +184,6 @@ function validateServerUrl(url: string): boolean {
 
     // Require HTTPS for remote hosts
     if (parsed.protocol !== "https:") return false;
-
-    // Block private/internal IP ranges
-    const ip = parsed.hostname;
-    if (
-      /^10\./.test(ip) ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
-      /^192\.168\./.test(ip) ||
-      /^169\.254\./.test(ip) ||
-      ip === "::1" ||
-      /^fc00/i.test(ip) ||
-      /^fd/i.test(ip)
-    ) {
-      return false;
-    }
 
     // Check against allowlist
     return ALLOWED_HOSTS.includes(parsed.hostname);
