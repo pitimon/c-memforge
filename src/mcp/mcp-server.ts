@@ -17,15 +17,17 @@
  * - handlers/ - Tool handlers
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+} from "@modelcontextprotocol/sdk/types.js";
 
-import { initializeApiKey, isRemoteEnabled, getRemoteUrl } from './api-client';
-import { getAllTools } from './handlers';
+import { initializeApiKey, isRemoteEnabled, getRemoteUrl } from "./api-client";
+import { getAllTools } from "./handlers";
+import { validateToolInput } from "./validation";
+import { auditLog } from "./audit-logger";
 
 // Redirect console.log to stderr (MCP uses stdout for JSON-RPC)
 const _originalConsoleLog = console.log;
@@ -38,7 +40,7 @@ initializeApiKey();
 if (isRemoteEnabled()) {
   console.log(`Remote search enabled: ${getRemoteUrl()}`);
 } else {
-  console.log('Remote search disabled (no API key)');
+  console.log("Remote search disabled (no API key)");
 }
 
 // Get all tool definitions
@@ -47,14 +49,14 @@ const tools = getAllTools();
 // Create MCP server
 const server = new Server(
   {
-    name: 'memforge-client',
-    version: '1.0.0',
+    name: "memforge-client",
+    version: "1.0.0",
   },
   {
     capabilities: {
       tools: {},
     },
-  }
+  },
 );
 
 // Register tools/list handler
@@ -76,12 +78,33 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new Error(`Unknown tool: ${request.params.name}`);
   }
 
+  const rawArgs = (request.params.arguments || {}) as Record<string, unknown>;
+  const start = Date.now();
+
+  // Validate input before handler execution
+  let validatedArgs: Record<string, unknown>;
   try {
-    return await tool.handler((request.params.arguments || {}) as Record<string, unknown>);
+    validatedArgs = validateToolInput(request.params.name, rawArgs);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    auditLog(request.params.name, rawArgs, Date.now() - start, false, message);
     return {
-      content: [{ type: 'text' as const, text: `Tool execution failed: ${message}` }],
+      content: [{ type: "text" as const, text: message }],
+      isError: true,
+    };
+  }
+
+  try {
+    const result = await tool.handler(validatedArgs);
+    auditLog(request.params.name, rawArgs, Date.now() - start, true);
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    auditLog(request.params.name, rawArgs, Date.now() - start, false, message);
+    return {
+      content: [
+        { type: "text" as const, text: `Tool execution failed: ${message}` },
+      ],
       isError: true,
     };
   }
@@ -91,10 +114,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log('MemForge Client MCP server started');
+  console.log("MemForge Client MCP server started");
 }
 
 main().catch((error) => {
-  console.error('Fatal error:', error);
+  console.error("Fatal error:", error);
   process.exit(1);
 });
