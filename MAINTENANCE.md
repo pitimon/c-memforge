@@ -48,6 +48,7 @@ Config is stored at `~/.memforge/config.json` (canonical). The setup script migr
 Get your API key at: https://memclaude.thaicloud.ai/settings
 
 Configure it using:
+
 ```bash
 cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
 bun run setup "your-api-key"
@@ -89,8 +90,8 @@ git push origin main
 
 ### Plugin Paths
 
-| Environment | Path |
-|-------------|------|
+| Environment  | Path                                                 |
+| ------------ | ---------------------------------------------------- |
 | User Install | `~/.claude/plugins/marketplaces/pitimon-c-memforge/` |
 
 ### Testing Installation Flow
@@ -121,10 +122,10 @@ bun run sync
 
 ### Production Server
 
-| Endpoint | Purpose |
-|----------|---------|
-| `https://memclaude.thaicloud.ai/health` | Health check |
-| `https://memclaude.thaicloud.ai/api/search` | Full-text search |
+| Endpoint                                       | Purpose           |
+| ---------------------------------------------- | ----------------- |
+| `https://memclaude.thaicloud.ai/health`        | Health check      |
+| `https://memclaude.thaicloud.ai/api/search`    | Full-text search  |
 | `https://memclaude.thaicloud.ai/api/sync/push` | Sync observations |
 
 ### Health Check
@@ -199,17 +200,105 @@ curl -H "X-API-Key: YOUR_KEY" https://memclaude.thaicloud.ai/health
 
 ---
 
-## Release Checklist
+## Release Runbook
 
-### Claude Code Release
+### Version Files (ALL 3 must match)
 
-- [ ] Update version in `package.json`
-- [ ] Update version in `.claude-plugin/plugin.json`
-- [ ] Update version in `.claude-plugin/marketplace.json`
-- [ ] Test locally: `bun run mcp`, `bun run sync`
-- [ ] Commit and push to GitHub
-- [ ] Test remote install flow
-- [ ] Update documentation
+| File                              | Read by                | Missed =                 |
+| --------------------------------- | ---------------------- | ------------------------ |
+| `package.json`                    | npm/bun, `bun run mcp` | Build uses wrong version |
+| `.claude-plugin/plugin.json`      | Plugin detail view     | Detail shows old version |
+| `.claude-plugin/marketplace.json` | Plugin **list** view   | List shows old version   |
+
+**Verify after bump:** `grep -rn '"version"' package.json .claude-plugin/`
+
+### Patch Release (bugfix, no new tools)
+
+```bash
+# 1. Branch
+git checkout -b fix/description
+
+# 2. Fix + commit
+git add <files>
+git commit -m "fix: description"
+
+# 3. PR + merge
+git push -u origin fix/description
+gh pr create --title "fix: description" --body "..."
+gh pr merge <N> --merge
+
+# 4. Version bump (ALL 3 files)
+git checkout main && git pull
+# Edit: package.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json
+git add package.json .claude-plugin/plugin.json .claude-plugin/marketplace.json
+git commit -m "chore(version): bump to X.Y.Z"
+git push origin main
+
+# 5. Tag + release
+git tag -a vX.Y.Z -m "vX.Y.Z — short description"
+git push origin vX.Y.Z
+gh release create vX.Y.Z --title "vX.Y.Z — Title" --notes "..."
+
+# 6. Verify
+grep -rn '"version"' package.json .claude-plugin/  # all 3 match?
+```
+
+### Minor Release (new tools / features)
+
+```bash
+# 1. Branch
+git checkout -b feat/description
+
+# 2. Implement
+#    - Add handler in src/mcp/handlers/
+#    - Register in handlers/index.ts (import + getAllTools)
+#    - Add endpoint to api-client.ts:
+#      ENDPOINT_MAP (if handler uses short path like /context/stable)
+#      ALLOWED_API_PATHS (for direct /api/ paths or prefix matching)
+#    - Update README.md tool count + table
+
+# 3. PR + merge (same as patch)
+
+# 4. Version bump ALL 3 files → X.Y+1.0
+# 5. Tag + release (same as patch)
+# 6. Verify
+```
+
+### Adding New Server Endpoints to Client
+
+When the memforge server adds new API endpoints:
+
+1. **ENDPOINT_MAP** — add if handler calls a short path (e.g., `/context/stable` → `/api/context/stable`)
+2. **ALLOWED_API_PATHS** — add the full `/api/...` path for exact match, or the prefix for parameterized paths (e.g., `/api/teams` matches `/api/teams/1/knowledge`)
+3. **Test** — call the tool and verify it doesn't throw "Unknown endpoint"
+
+### Post-Release QA
+
+```bash
+# From Claude Code:
+# 1. Update plugin
+/plugin → select memforge-client → "Update now"
+
+# 2. Verify version (list AND detail must match)
+/plugin → check list view version
+/plugin → select → check detail version
+
+# 3. Smoke test all tools
+# Run each mem_* tool and confirm no "Unknown endpoint" errors
+```
+
+### Rollback
+
+```bash
+# Revert to previous version
+git revert HEAD   # revert version bump
+git revert HEAD~1 # revert the fix (if needed)
+git push origin main
+
+# Re-tag
+git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z
+gh release delete vX.Y.Z --yes
+```
 
 ---
 
