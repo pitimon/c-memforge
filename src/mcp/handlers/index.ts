@@ -15,6 +15,8 @@ import { entityHandlers } from "./entity-handlers";
 import { statusHandlers } from "./status-handler";
 import { ingestHandlers } from "./ingest-handler";
 import { workflowHandlers } from "./workflow-handler";
+import { contextHandlers } from "./context-handlers";
+import { teamHandlers } from "./team-handlers";
 
 export {
   searchHandlers,
@@ -23,6 +25,8 @@ export {
   statusHandlers,
   ingestHandlers,
   workflowHandlers,
+  contextHandlers,
+  teamHandlers,
 };
 
 // Re-export individual handlers for direct imports
@@ -46,6 +50,8 @@ export { memStatus } from "./status-handler";
 
 export { memIngest } from "./ingest-handler";
 export { memWorkflowSuggest } from "./workflow-handler";
+export { memCrossProject, memStableContext } from "./context-handlers";
+export { memTeamKnowledge } from "./team-handlers";
 
 /**
  * Get all tool definitions for MCP server registration.
@@ -60,5 +66,7 @@ export function getAllTools(): ToolDefinition[] {
     ...entityHandlers,
     ...ingestHandlers,
     ...workflowHandlers,
+    ...contextHandlers,
+    ...teamHandlers,
   ];
 }
