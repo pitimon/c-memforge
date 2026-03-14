@@ -202,6 +202,8 @@ const ENDPOINT_MAP: Record<string, string> = {
   "/timeline": "/api/timeline",
   "/recent": "/api/observations",
   "/observation": "/api/observations/batch",
+  "/context/cross-project": "/api/context/cross-project",
+  "/context/stable": "/api/context/stable",
 };
 
 /** Allowed direct API paths (not in ENDPOINT_MAP) */
@@ -217,6 +219,9 @@ const ALLOWED_API_PATHS = new Set([
   "/api/search",
   "/api/search/hybrid",
   "/api/search/vector",
+  "/api/context/cross-project",
+  "/api/context/stable",
+  "/api/teams",
   "/health",
 ]);
 
