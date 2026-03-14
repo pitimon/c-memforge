@@ -6,7 +6,7 @@
 
 MemForge Client is a companion plugin that connects to the [MemForge](https://memclaude.thaicloud.ai) server, providing:
 
-- **15 MCP tools** for semantic search, observation retrieval, memory snapshots, and diagnostics
+- **16 MCP tools** for semantic search, cross-project knowledge, team collaboration, and diagnostics
 - **Real-time sync** from local claude-mem database to remote server
 - **Hybrid search** combining vector embeddings and full-text search
 - **Knowledge graph** with entity lookup and triplet queries
@@ -16,6 +16,7 @@ MemForge Client is a companion plugin that connects to the [MemForge](https://me
 ### Prerequisites
 
 1. **Bun runtime** - Install from https://bun.sh:
+
    ```bash
    curl -fsSL https://bun.sh/install | bash
    ```
@@ -70,6 +71,7 @@ bun run setup
 ```
 
 Then add to Claude Code:
+
 ```
 /plugin add /path/to/c-memforge
 ```
@@ -84,6 +86,7 @@ bun run sync
 ```
 
 The sync service:
+
 - Polls local database every 2 seconds
 - Syncs new observations to remote server
 - Retries failed syncs automatically
@@ -97,45 +100,44 @@ The sync service:
 
 ### Diagnostic Tools
 
-| Tool | Description |
-|------|-------------|
+| Tool         | Description                                            |
+| ------------ | ------------------------------------------------------ |
 | `mem_status` | Check config, connectivity, auth validity, and latency |
 
 ### Search Tools
 
-| Tool | Description | Recommendation |
-|------|-------------|----------------|
-| `mem_search` | Full-text search with filters | Fast (1-3s) |
-| `mem_hybrid_search` | Hybrid search with RRF ranking | Use `vector_weight=0.2` |
-| `mem_semantic_search` | Hybrid with mode selection | Flexible |
-| `mem_vector_search` | Pure vector/embedding search | Slowest (10-38s) |
+| Tool                  | Description                    | Recommendation          |
+| --------------------- | ------------------------------ | ----------------------- |
+| `mem_search`          | Full-text search with filters  | Fast (1-3s)             |
+| `mem_hybrid_search`   | Hybrid search with RRF ranking | Use `vector_weight=0.2` |
+| `mem_semantic_search` | Hybrid with mode selection     | Flexible                |
+| `mem_vector_search`   | Pure vector/embedding search   | Slowest (10-38s)        |
 
 All search tools support `offset` parameter for pagination.
 
 ### Observation Tools
 
-| Tool | Description |
-|------|-------------|
-| `mem_semantic_get` | Get observation by ID |
-| `mem_semantic_recent` | Get recent observations |
-| `mem_timeline` | Get context around an observation |
-| `mem_get_observations` | Batch fetch observations by IDs |
+| Tool                   | Description                       |
+| ---------------------- | --------------------------------- |
+| `mem_semantic_get`     | Get observation by ID             |
+| `mem_semantic_recent`  | Get recent observations           |
+| `mem_timeline`         | Get context around an observation |
+| `mem_get_observations` | Batch fetch observations by IDs   |
 
 ### Entity Tools
 
-| Tool | Description |
-|------|-------------|
-| `mem_entity_lookup` | Find triplets by entity name |
+| Tool                 | Description                     |
+| -------------------- | ------------------------------- |
+| `mem_entity_lookup`  | Find triplets by entity name    |
 | `mem_triplets_query` | Query SPO triplets with filters |
 
-### Snapshot Tools
+### Context & Knowledge Tools
 
-| Tool | Description | Access |
-|------|-------------|--------|
-| `mem_snapshot_create` | Create memory snapshot | All |
-| `mem_snapshot_list` | List all snapshots | All |
-| `mem_snapshot_restore` | Restore from snapshot | Admin only |
-| `mem_snapshot_delete` | Delete a snapshot | Admin only |
+| Tool                 | Description                                               |
+| -------------------- | --------------------------------------------------------- |
+| `mem_cross_project`  | Find observations from other projects via concept overlap |
+| `mem_team_knowledge` | Search team knowledge pool (shared by team members)       |
+| `mem_stable_context` | Get stable observation log for prompt caching             |
 
 ---
 
@@ -155,13 +157,13 @@ Configuration is stored in `~/.memforge/config.json`:
 
 ### Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `apiKey` | Your MemForge API key | (required) |
-| `serverUrl` | MemForge server URL | `https://memclaude.thaicloud.ai` |
-| `syncEnabled` | Enable real-time sync | `true` |
-| `pollInterval` | Sync poll interval in ms | `2000` |
-| `role` | Access level (`client` or `admin`) | `client` |
+| Option         | Description                        | Default                          |
+| -------------- | ---------------------------------- | -------------------------------- |
+| `apiKey`       | Your MemForge API key              | (required)                       |
+| `serverUrl`    | MemForge server URL                | `https://memclaude.thaicloud.ai` |
+| `syncEnabled`  | Enable real-time sync              | `true`                           |
+| `pollInterval` | Sync poll interval in ms           | `2000`                           |
+| `role`         | Access level (`client` or `admin`) | `client`                         |
 
 ### Self-Hosted Server
 
@@ -180,13 +182,14 @@ To use your own MemForge server:
 
 Search latency varies by mode. Choose the right mode for your needs:
 
-| Mode | Typical Latency | Best For |
-|------|----------------|----------|
-| `fts` (full-text) | 1-3s | Keyword search, fastest |
-| `hybrid` | 5-15s | Balanced relevance |
-| `vector` | 10-38s | Semantic similarity, slowest |
+| Mode              | Typical Latency | Best For                     |
+| ----------------- | --------------- | ---------------------------- |
+| `fts` (full-text) | 1-3s            | Keyword search, fastest      |
+| `hybrid`          | 5-15s           | Balanced relevance           |
+| `vector`          | 10-38s          | Semantic similarity, slowest |
 
 **Tips for faster searches:**
+
 - Use `mode: "fts"` in `mem_semantic_search` for fast keyword search
 - Add `dateStart`/`dateEnd` filters to narrow results
 - Use lower `limit` values (5-10 instead of 50)
@@ -224,6 +227,7 @@ graph TB
 ```
 
 **Components:**
+
 - **claude-mem plugin**: Local SQLite database storing observations
 - **memforge-client**: Sync service that polls local DB every 2s and pushes to remote
 - **MemForge API**: Remote server handling sync and search requests
@@ -262,12 +266,12 @@ sequenceDiagram
 
 ## Scripts
 
-| Script | Description |
-|--------|-------------|
+| Script                    | Description                              |
+| ------------------------- | ---------------------------------------- |
 | `bun run setup [api-key]` | Configure API key (interactive or quick) |
-| `bun run sync` | Start database watcher |
-| `bun run check` | Check dependencies |
-| `bun run mcp` | Run MCP server directly |
+| `bun run sync`            | Start database watcher                   |
+| `bun run check`           | Check dependencies                       |
+| `bun run mcp`             | Run MCP server directly                  |
 
 ---
 
@@ -280,6 +284,7 @@ Run `bun run setup` to configure your API key, or use `mem_status` tool to diagn
 ### "Required: thedotmack/claude-mem plugin"
 
 Install the base plugin first:
+
 ```
 /plugin marketplace add thedotmack/claude-mem
 ```
@@ -287,6 +292,7 @@ Install the base plugin first:
 ### "bun: command not found"
 
 Install Bun runtime:
+
 ```bash
 curl -fsSL https://bun.sh/install | bash
 source ~/.bashrc  # or restart terminal
@@ -301,6 +307,7 @@ claude plugin marketplace add https://github.com/pitimon/c-memforge.git
 ```
 
 Or configure git to use HTTPS for all GitHub operations:
+
 ```bash
 git config --global url."https://github.com/".insteadOf git@github.com:
 ```
@@ -330,6 +337,7 @@ claude plugin marketplace update pitimon-c-memforge
 ```
 
 Or inside Claude Code:
+
 ```
 /plugin marketplace update pitimon-c-memforge
 ```
