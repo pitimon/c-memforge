@@ -24,10 +24,17 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { initializeApiKey, isRemoteEnabled, getRemoteUrl } from "./api-client";
+import { readFileSync } from "fs";
+import {
+  initializeApiKey,
+  isRemoteEnabled,
+  getRemoteUrl,
+  resolveConfigPath,
+} from "./api-client";
 import { getAllTools } from "./handlers";
 import { validateToolInput } from "./validation";
 import { auditLog } from "./audit-logger";
+import { SyncPoller } from "../sync/sync-poller";
 import pkg from "../../package.json";
 
 // Redirect console.log to stderr (MCP uses stdout for JSON-RPC)
@@ -111,11 +118,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// Sync poller instance (started if syncEnabled in config)
+let syncPoller: SyncPoller | null = null;
+
+async function initSync(): Promise<void> {
+  const configPath = resolveConfigPath();
+  if (!configPath) return;
+
+  try {
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    if (!config.syncEnabled) return;
+
+    syncPoller = new SyncPoller({
+      pollInterval: config.pollInterval || 2000,
+      logger: console.error,
+    });
+    await syncPoller.start();
+  } catch (error) {
+    console.error("[Sync] Failed to initialize:", error);
+  }
+}
+
+// Graceful shutdown
+process.on("SIGTERM", () => syncPoller?.stop());
+process.on("SIGINT", () => syncPoller?.stop());
+
 // Start the server
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.log("MemForge Client MCP server started");
+
+  // Start sync poller after MCP server is connected
+  await initSync();
 }
 
 main().catch((error) => {
