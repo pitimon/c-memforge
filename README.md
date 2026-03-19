@@ -75,21 +75,6 @@ Use the `mem_status` tool inside Claude Code to check:
 - API key valid
 - Sync running
 
-### Alternative: Manual Installation (for development)
-
-```bash
-git clone https://github.com/pitimon/c-memforge.git
-cd c-memforge
-bun install
-bun run setup "your-api-key"
-```
-
-Then add to Claude Code:
-
-```
-/plugin add /path/to/c-memforge
-```
-
 ### Upgrading from v1.x
 
 If upgrading from v1.x, run `bun run setup` to clean up the legacy sync daemon:
