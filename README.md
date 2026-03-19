@@ -7,7 +7,7 @@
 MemForge Client is a companion plugin that connects to the [MemForge](https://memclaude.thaicloud.ai) server, providing:
 
 - **16 MCP tools** for semantic search, cross-project knowledge, team collaboration, and diagnostics
-- **Real-time sync** from local claude-mem database to remote server
+- **In-process sync** from local claude-mem database to remote server (no separate daemon)
 - **Hybrid search** combining vector embeddings and full-text search
 - **Knowledge graph** with entity lookup and triplet queries
 
@@ -45,7 +45,7 @@ bun run setup "your-api-key"
 
 Get your API key at: https://memclaude.thaicloud.ai/settings
 
-> **Note:** The setup script automatically registers the sync hook in `~/.claude/settings.json` and saves your config to `~/.memforge/config.json`.
+> **Note:** The setup script saves your config to `~/.memforge/config.json` and cleans up any legacy sync daemon files from v1.x.
 
 ### Option 2: Inside Claude Code
 
@@ -76,23 +76,17 @@ Then add to Claude Code:
 /plugin add /path/to/c-memforge
 ```
 
-### Start Sync Service (Optional)
+### Sync (Automatic)
 
-To sync your local observations to the remote server:
+Sync runs automatically inside the MCP server process when `syncEnabled: true` in config. No separate daemon, hooks, or background processes needed.
 
-```bash
-cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
-bun run sync
-```
+The sync poller:
 
-The sync service:
-
-- Polls local database every 2 seconds
-- Syncs new observations to remote server
-- Retries failed syncs automatically
+- Polls local claude-mem database every 2 seconds (configurable)
+- Syncs new observations and summaries to remote server
+- Retries failed syncs automatically (in-memory queue)
 - Runs in read-only mode (no conflicts with claude-mem)
-
-> **Note:** If you ran `bun run setup`, the sync service starts automatically on each Claude Code session via the registered SessionStart hook.
+- Starts/stops with the MCP server lifecycle
 
 ---
 
@@ -205,7 +199,7 @@ Search latency varies by mode. Choose the right mode for your needs:
 graph TB
     subgraph "Local Machine"
         CM[claude-mem plugin<br/>SQLite Database]
-        MFC[memforge-client<br/>Sync Service]
+        MFC[memforge-client<br/>MCP Server + SyncPoller]
     end
 
     subgraph "Remote Server"
@@ -229,7 +223,7 @@ graph TB
 **Components:**
 
 - **claude-mem plugin**: Local SQLite database storing observations
-- **memforge-client**: Sync service that polls local DB every 2s and pushes to remote
+- **memforge-client**: MCP server with in-process sync poller that polls local DB every 2s and pushes to remote
 - **MemForge API**: Remote server handling sync and search requests
 - **Vector DB**: Memgraph database with semantic search capabilities
 
@@ -269,7 +263,6 @@ sequenceDiagram
 | Script                    | Description                              |
 | ------------------------- | ---------------------------------------- |
 | `bun run setup [api-key]` | Configure API key (interactive or quick) |
-| `bun run sync`            | Start database watcher                   |
 | `bun run check`           | Check dependencies                       |
 | `bun run mcp`             | Run MCP server directly                  |
 
@@ -319,7 +312,7 @@ This is a known Claude Code issue ([#9719](https://github.com/anthropics/claude-
 1. Check config: `cat ~/.memforge/config.json`
 2. Verify API key is correct
 3. Check server connectivity: `curl https://memclaude.thaicloud.ai/health`
-4. Check sync logs when running `bun run sync`
+4. Check MCP server stderr for `[SyncPoller]` log messages
 5. Use `mem_status` tool for diagnostics
 
 ### Database locked
@@ -361,9 +354,9 @@ bun install
 bun run setup "your-api-key"
 ```
 
-This updates the SessionStart hook command if paths have changed. Your existing config at `~/.memforge/config.json` is preserved — only the hook is refreshed.
+This cleans up any legacy sync daemon files and ensures your config is current. Your existing config at `~/.memforge/config.json` is preserved.
 
-> **Note:** If you skip step 4, your existing config and hooks will continue to work. Re-running setup is only needed when the plugin updates hook behavior or bun path resolution.
+> **Note:** If you skip step 4, your existing config will continue to work. Re-running setup is recommended when upgrading from v1.x to clean up legacy daemon files.
 
 ---
 
@@ -375,11 +368,8 @@ See [MAINTENANCE.md](MAINTENANCE.md) for detailed maintenance instructions.
 # Check dependencies
 bun run check
 
-# Run MCP server
+# Run MCP server (includes sync poller)
 bun run mcp
-
-# Run sync watcher
-bun run sync
 ```
 
 ---

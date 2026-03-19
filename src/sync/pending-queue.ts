@@ -1,16 +1,11 @@
 /**
  * Pending Queue
  *
- * Persistent queue for failed sync operations.
- * Stores pending items to disk for retry after restart.
+ * In-memory queue for failed sync operations.
+ * Items are retried during the poll cycle.
+ * Lost on process restart — safe because server dedup
+ * handles overlap when SyncPoller re-queries MAX(id).
  */
-
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { homedir } from 'os';
-import { dirname, join } from 'path';
-
-const MEMFORGE_DIR = join(homedir(), '.memforge');
-const QUEUE_PATH = join(MEMFORGE_DIR, '.sync-queue.json');
 
 interface QueueItem {
   id: number;
@@ -20,44 +15,11 @@ interface QueueItem {
 }
 
 /**
- * Persistent queue for failed sync items.
+ * In-memory queue for failed sync items.
  */
 export class PendingQueue {
   private items: QueueItem[] = [];
   private maxRetries = 5;
-
-  constructor() {
-    this.load();
-  }
-
-  /**
-   * Load queue from disk.
-   */
-  private load(): void {
-    try {
-      if (existsSync(QUEUE_PATH)) {
-        const data = JSON.parse(readFileSync(QUEUE_PATH, 'utf-8'));
-        this.items = data.items || [];
-      }
-    } catch {
-      this.items = [];
-    }
-  }
-
-  /**
-   * Save queue to disk.
-   */
-  private save(): void {
-    try {
-      const dir = dirname(QUEUE_PATH);
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
-      writeFileSync(QUEUE_PATH, JSON.stringify({ items: this.items }, null, 2));
-    } catch (error) {
-      console.error('Failed to save queue:', error);
-    }
-  }
 
   /**
    * Add item to queue.
@@ -66,10 +28,9 @@ export class PendingQueue {
     const id = observation.id as number;
 
     // Check if already in queue
-    const existing = this.items.find(item => item.id === id);
+    const existing = this.items.find((item) => item.id === id);
     if (existing) {
       existing.retryCount++;
-      this.save();
       return;
     }
 
@@ -77,41 +38,31 @@ export class PendingQueue {
       id,
       observation,
       addedAt: new Date().toISOString(),
-      retryCount: 0
+      retryCount: 0,
     });
-    this.save();
   }
 
   /**
    * Remove item from queue.
    */
   remove(id: number): void {
-    this.items = this.items.filter(item => item.id !== id);
-    this.save();
+    this.items = this.items.filter((item) => item.id !== id);
   }
 
   /**
    * Get items ready for retry.
    */
   getRetryItems(): QueueItem[] {
-    return this.items.filter(item => item.retryCount < this.maxRetries);
-  }
-
-  /**
-   * Get items that exceeded max retries.
-   */
-  getFailedItems(): QueueItem[] {
-    return this.items.filter(item => item.retryCount >= this.maxRetries);
+    return this.items.filter((item) => item.retryCount < this.maxRetries);
   }
 
   /**
    * Increment retry count for an item.
    */
   incrementRetry(id: number): void {
-    const item = this.items.find(i => i.id === id);
+    const item = this.items.find((i) => i.id === id);
     if (item) {
       item.retryCount++;
-      this.save();
     }
   }
 
@@ -127,15 +78,13 @@ export class PendingQueue {
    */
   clear(): void {
     this.items = [];
-    this.save();
   }
 
   /**
    * Clear only failed items (exceeded max retries).
    */
   clearFailed(): void {
-    this.items = this.items.filter(item => item.retryCount < this.maxRetries);
-    this.save();
+    this.items = this.items.filter((item) => item.retryCount < this.maxRetries);
   }
 }
 

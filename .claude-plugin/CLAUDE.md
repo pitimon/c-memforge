@@ -37,36 +37,24 @@ All search tools support `offset` parameter for pagination.
 
 Config is stored at `~/.memforge/config.json`. Run `bun run setup` to configure.
 
-The setup script also registers the sync SessionStart hook in `~/.claude/settings.json`.
+Sync runs automatically inside the MCP server process when `syncEnabled: true`.
 
 ### Role-Based Access
 Set `"role": "admin"` in config to access destructive snapshot tools (restore/delete). Default is `"client"`.
 
-## Sync Manager
+## Sync (In-Process)
 
-Auto-manages the database watcher process via SessionStart hook.
-
-### Commands
-```bash
-bun src/sync/sync-manager.ts start   # Start watcher (detached, PID tracked)
-bun src/sync/sync-manager.ts stop    # Stop watcher (SIGTERM + cleanup)
-bun src/sync/sync-manager.ts status  # Check if watcher is running
-```
+Sync runs automatically inside the MCP server process — no separate daemon, hooks, or background processes.
 
 ### Architecture
-- `sync-manager.ts` - Process lifecycle (PID file, detached spawn, log redirect)
-- `db-watcher.ts` - Polls local SQLite, uses batch `syncBatch()` for efficiency
-- `remote-sync.ts` - HTTP sync with disk-persistent `PendingQueue` for retry
-- `pending-queue.ts` - Failed syncs persisted to `~/.memforge/.sync-queue.json`, max 5 retries
+- `sync-poller.ts` - In-process polling of claude-mem SQLite (2s interval, configurable)
+- `remote-sync.ts` - HTTP sync via `POST /api/sync/push` with batch support
+- `pending-queue.ts` - In-memory retry queue (max 5 retries, lost on restart — server dedup handles overlap)
 
 ### Key Files
 | File | Purpose |
 |------|---------|
-| `~/.memforge/config.json` | Plugin configuration (API key, server URL, role) |
-| `~/.memforge/.sync-watermark.json` | Sync progress watermark |
-| `~/.memforge/.sync-queue.json` | Persistent retry queue for failed syncs |
-| `~/.claude-mem/memforge-sync.pid` | PID file (JSON: pid, startedAt, pluginRoot) |
-| `~/.claude-mem/memforge-sync.log` | Watcher stdout/stderr log |
+| `~/.memforge/config.json` | Plugin configuration (API key, server URL, role, syncEnabled, pollInterval) |
 
 ## Requirements
 
