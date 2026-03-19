@@ -119,7 +119,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 // Sync poller instance (started if syncEnabled in config)
-let syncPoller: SyncPoller | null = null;
+// Exported for status-handler to read sync stats
+export let syncPoller: SyncPoller | null = null;
 
 async function initSync(): Promise<void> {
   const configPath = resolveConfigPath();

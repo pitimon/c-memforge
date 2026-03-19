@@ -10,6 +10,8 @@
  * - Watermark in-memory only (server dedup handles restart overlap)
  * - Logger injected (MCP stdout = JSON-RPC, must use stderr)
  * - All errors caught — never crashes host process
+ * - Adaptive polling: speeds up when active, slows down when idle
+ * - Circuit breaker: suppresses HTTP calls during server outages
  */
 
 import { existsSync } from "fs";
@@ -22,6 +24,15 @@ const DB_PATH = join(homedir(), ".claude-mem/claude-mem.db");
 const DEFAULT_POLL_INTERVAL = 2000;
 const DB_WAIT_INTERVAL = 5000;
 const MAX_DB_WAIT_ATTEMPTS = 60; // 5 minutes max wait
+
+// Adaptive polling constants
+const MIN_POLL_INTERVAL = 1000; // 1s when active
+const MAX_POLL_INTERVAL = 10000; // 10s when idle
+const IDLE_THRESHOLD = 5; // idle after 5 consecutive empty polls
+
+// Circuit breaker constants
+const CIRCUIT_THRESHOLD = 3; // open after 3 consecutive sync failures
+const CIRCUIT_COOLDOWN = 30000; // 30s cooldown before retry probe
 
 interface ObservationRow {
   id: number;
@@ -67,11 +78,14 @@ interface SyncPollerOptions {
   logger?: (...args: unknown[]) => void;
 }
 
-interface SyncStats {
+export interface SyncStats {
   lastObsId: number;
   lastSumId: number;
   syncedCount: number;
   failedCount: number;
+  pendingCount: number;
+  circuitState: "closed" | "open" | "half-open";
+  currentInterval: number;
 }
 
 export class SyncPoller {
@@ -80,14 +94,23 @@ export class SyncPoller {
   private lastSumId = 0;
   private syncedCount = 0;
   private failedCount = 0;
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private dbWaitTimer: ReturnType<typeof setInterval> | null = null;
-  private pollInterval: number;
+  private basePollInterval: number;
+  private currentInterval: number;
   private log: (...args: unknown[]) => void;
   private running = false;
 
+  // Adaptive polling state
+  private consecutiveEmpty = 0;
+
+  // Circuit breaker state
+  private consecutiveFailures = 0;
+  private circuitOpenUntil = 0;
+
   constructor(options?: SyncPollerOptions) {
-    this.pollInterval = options?.pollInterval || DEFAULT_POLL_INTERVAL;
+    this.basePollInterval = options?.pollInterval || DEFAULT_POLL_INTERVAL;
+    this.currentInterval = this.basePollInterval;
     this.log = options?.logger || console.error;
   }
 
@@ -100,7 +123,7 @@ export class SyncPoller {
     }
 
     this.running = true;
-    this.log(`[SyncPoller] Starting (interval=${this.pollInterval}ms)`);
+    this.log(`[SyncPoller] Starting (interval=${this.basePollInterval}ms)`);
 
     if (!existsSync(DB_PATH)) {
       this.log("[SyncPoller] Database not found, waiting for claude-mem...");
@@ -117,7 +140,7 @@ export class SyncPoller {
     this.running = false;
 
     if (this.pollTimer) {
-      clearInterval(this.pollTimer);
+      clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
 
@@ -150,7 +173,36 @@ export class SyncPoller {
       lastSumId: this.lastSumId,
       syncedCount: this.syncedCount,
       failedCount: this.failedCount,
+      pendingCount: remoteSync.getPendingCount(),
+      circuitState: this.getCircuitState(),
+      currentInterval: this.currentInterval,
     };
+  }
+
+  private getCircuitState(): "closed" | "open" | "half-open" {
+    if (this.consecutiveFailures < CIRCUIT_THRESHOLD) return "closed";
+    if (Date.now() >= this.circuitOpenUntil) return "half-open";
+    return "open";
+  }
+
+  private isCircuitOpen(): boolean {
+    return this.getCircuitState() === "open";
+  }
+
+  private getAdaptiveInterval(): number {
+    if (this.consecutiveEmpty >= IDLE_THRESHOLD) {
+      const backoff =
+        this.basePollInterval *
+        Math.pow(1.5, this.consecutiveEmpty - IDLE_THRESHOLD);
+      return Math.min(Math.round(backoff), MAX_POLL_INTERVAL);
+    }
+    return MIN_POLL_INTERVAL;
+  }
+
+  private scheduleNextPoll(interval: number): void {
+    if (!this.running) return;
+    this.currentInterval = interval;
+    this.pollTimer = setTimeout(() => this.poll(), interval);
   }
 
   private async waitForDb(): Promise<void> {
@@ -190,7 +242,7 @@ export class SyncPoller {
         `[SyncPoller] Connected (obs=${this.lastObsId}, sum=${this.lastSumId})`,
       );
 
-      this.pollTimer = setInterval(() => this.poll(), this.pollInterval);
+      this.scheduleNextPoll(this.basePollInterval);
     } catch (error) {
       this.log("[SyncPoller] Failed to connect:", error);
       this.running = false;
@@ -198,11 +250,21 @@ export class SyncPoller {
   }
 
   private async poll(): Promise<void> {
-    if (!this.db) return;
+    if (!this.db || !this.running) return;
+
+    // Circuit breaker: skip sync when remote is known to be down
+    if (this.isCircuitOpen()) {
+      this.scheduleNextPoll(CIRCUIT_COOLDOWN);
+      return;
+    }
+
+    let hadData = false;
+    let hadSyncError = false;
 
     try {
-      await this.checkNewObservations();
-      await this.checkNewSummaries();
+      const obsCount = await this.checkNewObservations();
+      const sumCount = await this.checkNewSummaries();
+      hadData = obsCount > 0 || sumCount > 0;
 
       // Retry pending if any
       const pendingCount = remoteSync.getPendingCount();
@@ -212,14 +274,39 @@ export class SyncPoller {
           this.syncedCount += retried;
         }
       }
+
+      // Success — reset circuit breaker
+      if (this.consecutiveFailures > 0) {
+        this.log("[SyncPoller] Remote connection restored");
+      }
+      this.consecutiveFailures = 0;
     } catch (error) {
-      // Database might be locked, retry next poll
       this.log("[SyncPoller] Poll error:", error);
+      hadSyncError = true;
+      this.consecutiveFailures++;
+
+      if (this.consecutiveFailures >= CIRCUIT_THRESHOLD) {
+        this.circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN;
+        this.log(
+          `[SyncPoller] Circuit OPEN — remote unreachable (${this.consecutiveFailures} failures), retry in ${CIRCUIT_COOLDOWN / 1000}s`,
+        );
+      }
+    }
+
+    // Adaptive polling: speed up when active, slow down when idle
+    if (hadData) {
+      this.consecutiveEmpty = 0;
+      this.scheduleNextPoll(MIN_POLL_INTERVAL);
+    } else if (hadSyncError) {
+      this.scheduleNextPoll(this.basePollInterval);
+    } else {
+      this.consecutiveEmpty++;
+      this.scheduleNextPoll(this.getAdaptiveInterval());
     }
   }
 
-  private async checkNewObservations(): Promise<void> {
-    if (!this.db) return;
+  private async checkNewObservations(): Promise<number> {
+    if (!this.db) return 0;
 
     const rows = this.db
       .query(
@@ -236,7 +323,7 @@ export class SyncPoller {
       )
       .all({ $lastObsId: this.lastObsId }) as ObservationRow[];
 
-    if (rows.length === 0) return;
+    if (rows.length === 0) return 0;
 
     const observations = rows.map((row) => ({
       id: row.id,
@@ -264,10 +351,12 @@ export class SyncPoller {
     if (result.failed === 0) {
       this.lastObsId = rows[rows.length - 1].id;
     }
+
+    return rows.length;
   }
 
-  private async checkNewSummaries(): Promise<void> {
-    if (!this.db) return;
+  private async checkNewSummaries(): Promise<number> {
+    if (!this.db) return 0;
 
     const rows = this.db
       .query(
@@ -284,7 +373,7 @@ export class SyncPoller {
       )
       .all({ $lastSumId: this.lastSumId }) as SummaryRow[];
 
-    if (rows.length === 0) return;
+    if (rows.length === 0) return 0;
 
     const summaries = rows.map((row) => ({
       id: row.id,
@@ -312,5 +401,7 @@ export class SyncPoller {
     if (result.failed === 0) {
       this.lastSumId = rows[rows.length - 1].id;
     }
+
+    return rows.length;
   }
 }
