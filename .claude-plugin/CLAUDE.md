@@ -4,7 +4,7 @@ Persistent semantic memory for Claude Code, powered by the MemForge SaaS platfor
 
 ## MCP Tools Available
 
-This plugin provides 15 MCP tools for diagnostics, semantic search, and memory management:
+This plugin provides 16 MCP tools for diagnostics, semantic search, and memory management:
 
 ### Diagnostic Tools
 - `mem_status` - Check config, connectivity, auth, and latency
@@ -27,11 +27,14 @@ All search tools support `offset` parameter for pagination.
 - `mem_entity_lookup` - Find triplets by entity name
 - `mem_triplets_query` - Query SPO triplets with filters
 
-### Snapshot Tools
-- `mem_snapshot_create` - Create memory snapshot
-- `mem_snapshot_list` - List all snapshots
-- `mem_snapshot_restore` - Restore from snapshot (admin only)
-- `mem_snapshot_delete` - Delete a snapshot (admin only)
+### Context & Knowledge Tools
+- `mem_cross_project` - Find observations from other projects via concept overlap
+- `mem_team_knowledge` - Search team knowledge pool (shared by team members)
+- `mem_stable_context` - Get stable observation log for prompt caching
+
+### Data Tools
+- `mem_ingest` - Ingest observations into the server
+- `mem_workflow_suggest` - Suggest workflows based on context
 
 ## Configuration
 
@@ -40,7 +43,9 @@ Config is stored at `~/.memforge/config.json`. Run `bun run setup` to configure.
 Sync runs automatically inside the MCP server process when `syncEnabled: true`.
 
 ### Role-Based Access
-Set `"role": "admin"` in config to access destructive snapshot tools (restore/delete). Default is `"client"`.
+Set `"role": "admin"` in config to access admin features. Default is `"client"`.
+
+> **Note:** Snapshot tools (create/restore/delete) are available on the server-side MCP only, not in this client plugin.
 
 ## Sync (In-Process)
 

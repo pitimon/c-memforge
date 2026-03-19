@@ -133,6 +133,13 @@ All search tools support `offset` parameter for pagination.
 | `mem_team_knowledge` | Search team knowledge pool (shared by team members)       |
 | `mem_stable_context` | Get stable observation log for prompt caching             |
 
+### Data Tools
+
+| Tool                   | Description                         |
+| ---------------------- | ----------------------------------- |
+| `mem_ingest`           | Ingest observations into the server |
+| `mem_workflow_suggest` | Suggest workflows based on context  |
+
 ---
 
 ## Configuration
@@ -211,7 +218,7 @@ graph TB
     MFC -->|HTTPS + API Key<br/>POST /api/sync/push| API
     API --> VDB
 
-    User[Claude Code] -.->|15 MCP Tools<br/>Search & Retrieve| API
+    User[Claude Code] -.->|16 MCP Tools<br/>Search & Retrieve| API
 
     style CM fill:#1a365d,stroke:#2d3748,stroke-width:2px,color:#fff
     style MFC fill:#2f855a,stroke:#276749,stroke-width:2px,color:#fff
@@ -317,7 +324,7 @@ This is a known Claude Code issue ([#9719](https://github.com/anthropics/claude-
 
 ### Database locked
 
-The sync service uses read-only mode and should not conflict with claude-mem. If issues persist, restart the sync service.
+The sync poller uses read-only mode and should not conflict with claude-mem. If issues persist, restart Claude Code (which restarts the MCP server and sync poller).
 
 ---
 
