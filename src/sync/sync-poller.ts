@@ -227,6 +227,23 @@ export class SyncPoller {
     try {
       this.db = new Database(DB_PATH, { readonly: true });
 
+      // Schema check: verify expected tables exist
+      const tables = this.db
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('observations', 'session_summaries', 'sdk_sessions')",
+        )
+        .all() as { name: string }[];
+      if (tables.length < 3) {
+        const found = tables.map((t) => t.name).join(", ");
+        this.log(
+          `[SyncPoller] Schema mismatch: expected observations, session_summaries, sdk_sessions — found: ${found || "none"}`,
+        );
+        this.db.close();
+        this.db = null;
+        this.running = false;
+        return;
+      }
+
       // Initialize watermark from MAX(id) — server dedup handles any overlap
       const obsRow = this.db
         .query("SELECT MAX(id) as maxId FROM observations")
