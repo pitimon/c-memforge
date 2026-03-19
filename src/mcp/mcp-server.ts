@@ -35,6 +35,7 @@ import { getAllTools } from "./handlers";
 import { validateToolInput } from "./validation";
 import { auditLog } from "./audit-logger";
 import { SyncPoller } from "../sync/sync-poller";
+import { createSyncLogger } from "../sync/sync-logger";
 import pkg from "../../package.json";
 
 // Redirect console.log to stderr (MCP uses stdout for JSON-RPC)
@@ -132,7 +133,7 @@ async function initSync(): Promise<void> {
 
     syncPoller = new SyncPoller({
       pollInterval: config.pollInterval || 2000,
-      logger: console.error,
+      logger: createSyncLogger(),
     });
     await syncPoller.start();
   } catch (error) {
