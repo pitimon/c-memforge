@@ -222,6 +222,7 @@ const ALLOWED_API_PATHS = new Set([
   "/api/context/cross-project",
   "/api/context/stable",
   "/api/teams",
+  "/api/snapshots",
   "/health",
 ]);
 
