@@ -10,7 +10,7 @@
     {
       "name": "memforge-client",
       "description": "MemForge - Persistent memory for Claude Code (SaaS client)",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": {
         "name": "Pitimon",
         "email": "pitimon@thaicloud.ai"
