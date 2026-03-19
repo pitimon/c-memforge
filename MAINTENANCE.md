@@ -21,11 +21,10 @@ c-memforge/
 │   │   ├── types.ts         # Type definitions
 │   │   ├── handlers/        # Tool handlers (incl. status-handler.ts)
 │   │   └── formatters/      # Response formatters
-│   └── sync/                # Sync service (Claude Code only)
-│       ├── db-watcher.ts    # Database polling
+│   └── sync/                # Sync service (in-process)
+│       ├── sync-poller.ts   # In-process database polling (replaces db-watcher)
 │       ├── remote-sync.ts   # Remote sync client
-│       ├── sync-manager.ts  # Process lifecycle manager
-│       └── pending-queue.ts # Persistent retry queue
+│       └── pending-queue.ts # In-memory retry queue
 ├── scripts/
 │   ├── setup.ts             # Configuration script (writes to ~/.memforge/)
 │   └── check-dependency.ts  # Dependency checker
@@ -37,7 +36,7 @@ c-memforge/
 
 ### Config Location
 
-Config is stored at `~/.memforge/config.json` (canonical). The setup script migrates from the legacy `config.local.json` location automatically. Sync watermark and queue files are also stored under `~/.memforge/`.
+Config is stored at `~/.memforge/config.json` (canonical). The setup script migrates from the legacy `config.local.json` location automatically. No other state files are needed — sync watermark and retry queue are in-memory.
 
 ---
 
@@ -54,7 +53,7 @@ cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
 bun run setup "your-api-key"
 ```
 
-Config is saved to `~/.memforge/config.json` and hooks are registered in `~/.claude/settings.json` automatically.
+Config is saved to `~/.memforge/config.json`. Sync runs automatically inside the MCP server process.
 
 ### For Administrators
 
@@ -78,9 +77,8 @@ curl -H "X-API-Key: KEY" https://memclaude.thaicloud.ai/health
 # 1. Make changes locally
 # Edit files...
 
-# 2. Test locally
+# 2. Test locally (sync runs in-process with MCP server)
 bun run mcp
-bun run sync
 
 # 3. Commit and push
 git add -A
@@ -105,13 +103,12 @@ claude plugin marketplace remove pitimon-c-memforge
 claude plugin marketplace add https://github.com/pitimon/c-memforge.git
 claude plugin install memforge-client@pitimon-c-memforge
 
-# Configure (saves to ~/.memforge/config.json + registers hooks)
+# Configure (saves to ~/.memforge/config.json, cleans up legacy files)
 cd ~/.claude/plugins/marketplaces/pitimon-c-memforge
 bun run setup "API-KEY"
 
-# Test
+# Test (sync runs in-process with MCP server)
 bun run mcp
-bun run sync
 ```
 
 > **Note:** The GitHub slug format `pitimon/c-memforge` uses SSH internally and may fail for clients without SSH keys configured. Use the HTTPS URL instead. See [Claude Code issue #9719](https://github.com/anthropics/claude-code/issues/9719).
@@ -185,8 +182,8 @@ ls -la ~/.claude-mem/claude-mem.db
 # Check sync config
 cat ~/.memforge/config.json | jq .syncEnabled
 
-# Test sync manually
-bun run sync
+# Test sync (check MCP server stderr for [SyncPoller] messages)
+bun run mcp
 ```
 
 ### API Key Rejected

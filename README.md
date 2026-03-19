@@ -312,7 +312,7 @@ This is a known Claude Code issue ([#9719](https://github.com/anthropics/claude-
 1. Check config: `cat ~/.memforge/config.json`
 2. Verify API key is correct
 3. Check server connectivity: `curl https://memclaude.thaicloud.ai/health`
-4. Check sync logs when running `bun run sync`
+4. Check MCP server stderr for `[SyncPoller]` log messages
 5. Use `mem_status` tool for diagnostics
 
 ### Database locked
