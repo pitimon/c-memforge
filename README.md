@@ -26,54 +26,85 @@ MemForge Client is a companion plugin that connects to the [MemForge](https://me
    /plugin marketplace add thedotmack/claude-mem
    ```
 
-### Option 1: Claude Code CLI (Recommended)
+### Step 1: Install Plugin
 
-```bash
-# Step 1: Add the marketplace (HTTPS URL recommended)
-claude plugin marketplace add https://github.com/pitimon/c-memforge.git
-
-# Step 2: Install the plugin
-claude plugin install memforge-client@pitimon-c-memforge
-
-# Step 3: Install dependencies
-cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
-bun install
-
-# Step 4: Configure API key
-bun run setup "your-api-key"
-```
-
-Get your API key at: https://memclaude.thaicloud.ai/settings
-
-> **Note:** The setup script saves your config to `~/.memforge/config.json` and cleans up any legacy sync daemon files from v1.x.
-
-### Option 2: Inside Claude Code
+Inside Claude Code:
 
 ```
 /plugin marketplace add https://github.com/pitimon/c-memforge.git
 ```
 
-Then configure in terminal:
+Or via CLI:
 
 ```bash
-cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
-bun install
-bun run setup "your-api-key"
+claude plugin marketplace add https://github.com/pitimon/c-memforge.git
+claude plugin install memforge-client@pitimon-c-memforge
 ```
 
-### Option 3: Manual Installation
+### Step 2: Configure API Key
+
+Get your API key at: https://memclaude.thaicloud.ai/settings
+
+Create the config file:
+
+```bash
+mkdir -p ~/.memforge
+cat > ~/.memforge/config.json << 'EOF'
+{
+  "apiKey": "your-api-key-here",
+  "serverUrl": "https://memclaude.thaicloud.ai",
+  "syncEnabled": true,
+  "pollInterval": 2000,
+  "role": "client"
+}
+EOF
+```
+
+Replace `your-api-key-here` with your actual API key.
+
+### Step 3: Restart Claude Code
+
+Restart Claude Code to load the plugin. The MCP server starts automatically with sync enabled.
+
+### Verify Installation
+
+Use the `mem_status` tool inside Claude Code to check:
+
+- Config loaded
+- Server connectivity
+- API key valid
+- Sync running
+
+### Alternative: Manual Installation (for development)
 
 ```bash
 git clone https://github.com/pitimon/c-memforge.git
 cd c-memforge
 bun install
-bun run setup
+bun run setup "your-api-key"
 ```
 
 Then add to Claude Code:
 
 ```
 /plugin add /path/to/c-memforge
+```
+
+### Upgrading from v1.x
+
+If upgrading from v1.x, run `bun run setup` to clean up the legacy sync daemon:
+
+```bash
+cd <plugin-directory>
+bun run setup "your-api-key"
+```
+
+This kills any running `db-watcher` daemon, removes legacy state files (PID, log, watermark, queue), and removes the SessionStart hook from `~/.claude/settings.json`.
+
+Or manually kill the old daemon:
+
+```bash
+ps aux | grep db-watcher | grep -v grep | awk '{print $2}' | xargs kill 2>/dev/null
 ```
 
 ### Sync (Automatic)
@@ -279,7 +310,7 @@ sequenceDiagram
 
 ### "Remote search not configured"
 
-Run `bun run setup` to configure your API key, or use `mem_status` tool to diagnose.
+Check that `~/.memforge/config.json` exists with a valid `apiKey`. See [Configuration](#configuration) for the file format. Use `mem_status` tool to diagnose.
 
 ### "Required: thedotmack/claude-mem plugin"
 
@@ -330,40 +361,20 @@ The sync poller uses read-only mode and should not conflict with claude-mem. If 
 
 ## Updating
 
-### Step 1: Update marketplace cache
-
-```bash
-claude plugin marketplace update pitimon-c-memforge
-```
-
-Or inside Claude Code:
+Inside Claude Code:
 
 ```
 /plugin marketplace update pitimon-c-memforge
 ```
 
-### Step 2: Re-install plugin (copies updated code to cache)
+Or via CLI:
 
 ```bash
+claude plugin marketplace update pitimon-c-memforge
 claude plugin install memforge-client@pitimon-c-memforge
 ```
 
-### Step 3: Re-install dependencies
-
-```bash
-cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
-bun install
-```
-
-### Step 4: Re-run setup (recommended)
-
-```bash
-bun run setup "your-api-key"
-```
-
-This cleans up any legacy sync daemon files and ensures your config is current. Your existing config at `~/.memforge/config.json` is preserved.
-
-> **Note:** If you skip step 4, your existing config will continue to work. Re-running setup is recommended when upgrading from v1.x to clean up legacy daemon files.
+Your config at `~/.memforge/config.json` is preserved across updates. Restart Claude Code after updating.
 
 ---
 
