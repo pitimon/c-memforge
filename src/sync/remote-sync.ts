@@ -176,6 +176,9 @@ export class RemoteSync {
       }
     }
 
+    // Clean up items that exceeded max retries to prevent memory leak
+    pendingQueue.clearFailed();
+
     return synced;
   }
 

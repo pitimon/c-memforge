@@ -13,6 +13,7 @@ import {
   getRole,
   wrapSuccess,
 } from "../api-client";
+import { syncPoller } from "../mcp-server";
 
 /**
  * Mask API key for display.
@@ -108,6 +109,22 @@ export const memStatus: ToolDefinition = {
       lines.push(`**Auth:** Check failed - ${message}`);
     } finally {
       clearTimeout(authTimeoutId);
+    }
+
+    // Sync stats
+    lines.push("");
+    if (syncPoller?.isActive()) {
+      const stats = syncPoller.getStats();
+      lines.push(
+        `**Sync:** ${stats.syncedCount} synced, ${stats.failedCount} failed, pending: ${stats.pendingCount}`,
+      );
+      if (stats.circuitState !== "closed") {
+        lines.push(`**Circuit:** ${stats.circuitState}`);
+      }
+    } else if (syncPoller) {
+      lines.push("**Sync:** starting...");
+    } else {
+      lines.push("**Sync:** not running");
     }
 
     return wrapSuccess(lines.join("\n"));
