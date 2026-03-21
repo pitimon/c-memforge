@@ -47,6 +47,15 @@ interface SingleSkillResponse {
     source_ids?: number[];
     input_schema?: object;
     output_schema?: object;
+    evaluation?: {
+      safety: number;
+      completeness: number;
+      executability: number;
+      maintainability: number;
+      cost_awareness: number;
+      overall: number;
+      method: string;
+    };
   };
   project?: string;
   importance_score?: number;
@@ -75,17 +84,7 @@ function formatSkill(s: SingleSkillResponse, index?: number): string {
     output += `**Estimated tokens:** ~${meta.estimated_tokens}\n`;
   }
 
-  const evaluation = (meta as Record<string, unknown>).evaluation as
-    | {
-        safety: number;
-        completeness: number;
-        executability: number;
-        maintainability: number;
-        cost_awareness: number;
-        overall: number;
-        method: string;
-      }
-    | undefined;
+  const evaluation = meta.evaluation;
   if (evaluation) {
     output +=
       `**Quality:** ${evaluation.overall.toFixed(2)} [${evaluation.method}] ` +
@@ -132,7 +131,7 @@ export const memSkillSearch: ToolDefinition = {
   handler: async (args) => {
     try {
       const params: Record<string, unknown> = {
-        limit: args.limit || 10,
+        limit: args.limit ?? 10,
       };
       if (args.query) params.q = args.query;
       if (args.category) params.category = args.category;
@@ -190,6 +189,9 @@ export const memSkillGet: ToolDefinition = {
 
       return wrapSuccess(formatSkill(data));
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes("404"))
+        return wrapSuccess(`Skill #${args.id} not found.`);
       return wrapError(error);
     }
   },
@@ -222,8 +224,8 @@ export const memSkillRelated: ToolDefinition = {
   handler: async (args) => {
     try {
       const data = (await callRemoteAPI(`/api/skills/${args.id}/related`, {
-        depth: args.depth || 2,
-        limit: args.limit || 10,
+        depth: args.depth ?? 2,
+        limit: args.limit ?? 10,
       })) as {
         id: number;
         related: Array<{
@@ -288,6 +290,14 @@ export const memSkillCreate: ToolDefinition = {
   },
   handler: async (args) => {
     try {
+      if (
+        !args.session_id &&
+        (!args.observation_ids ||
+          (args.observation_ids as number[]).length === 0)
+      ) {
+        return wrapSuccess("Either session_id or observation_ids is required.");
+      }
+
       const body: Record<string, unknown> = {};
       if (args.session_id) body.session_id = args.session_id;
       if (args.observation_ids) body.observation_ids = args.observation_ids;
@@ -340,7 +350,7 @@ export const memSkillDiscover: ToolDefinition = {
   handler: async (args) => {
     try {
       const params: Record<string, unknown> = {
-        limit: args.limit || 10,
+        limit: args.limit ?? 10,
       };
       if (args.query) params.q = args.query;
       if (args.category) params.category = args.category;
@@ -370,8 +380,8 @@ export const memSkillDiscover: ToolDefinition = {
           (s, i) =>
             `${i + 1}. **${s.title || "Untitled"}** (ID: ${s.skill_observation_id})\n` +
             `   Category: ${s.category || "—"} | ` +
-            `Rating: ${s.avg_rating.toFixed(1)}/5 (${s.rating_count}) | ` +
-            `Forks: ${s.fork_count} | ` +
+            `Rating: ${s.avg_rating != null ? s.avg_rating.toFixed(1) : "—"}/5 (${s.rating_count ?? 0}) | ` +
+            `Forks: ${s.fork_count ?? 0} | ` +
             `Owner: ${s.owner_schema}\n` +
             `   Tags: ${s.tags?.join(", ") || "none"}`,
         )
