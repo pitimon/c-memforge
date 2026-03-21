@@ -154,6 +154,44 @@ const schemas: Record<string, z.ZodType> = {
     query: z.string().max(2000).optional(),
     limit: limitField(20, 5),
   }),
+
+  mem_skill_search: z.object({
+    query: z.string().max(2000).optional(),
+    category: z.string().max(100).optional(),
+    tags: z.string().max(500).optional(),
+    limit: limitField(100, 10),
+  }),
+
+  mem_skill_get: z.object({
+    id: z.coerce.number().int().min(1),
+  }),
+
+  mem_skill_related: z.object({
+    id: z.coerce.number().int().min(1),
+    depth: z.coerce.number().int().min(1).max(3).optional(),
+    limit: limitField(50, 10),
+  }),
+
+  mem_skill_create: z
+    .object({
+      session_id: z.string().max(500).optional(),
+      observation_ids: z
+        .array(z.coerce.number().int().min(1))
+        .max(50)
+        .optional(),
+      project: z.string().max(200).optional(),
+    })
+    .refine(
+      (d) =>
+        d.session_id || (d.observation_ids && d.observation_ids.length > 0),
+      { message: "Either session_id or observation_ids required" },
+    ),
+
+  mem_skill_discover: z.object({
+    query: z.string().max(2000).optional(),
+    category: z.string().max(100).optional(),
+    limit: limitField(100, 10),
+  }),
 };
 
 /**

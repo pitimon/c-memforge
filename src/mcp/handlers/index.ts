@@ -17,6 +17,7 @@ import { ingestHandlers } from "./ingest-handler";
 import { workflowHandlers } from "./workflow-handler";
 import { contextHandlers } from "./context-handlers";
 import { teamHandlers } from "./team-handlers";
+import { skillHandlers } from "./skill-handlers";
 
 export {
   searchHandlers,
@@ -27,6 +28,7 @@ export {
   workflowHandlers,
   contextHandlers,
   teamHandlers,
+  skillHandlers,
 };
 
 // Re-export individual handlers for direct imports
@@ -52,6 +54,13 @@ export { memIngest } from "./ingest-handler";
 export { memWorkflowSuggest } from "./workflow-handler";
 export { memCrossProject, memStableContext } from "./context-handlers";
 export { memTeamKnowledge } from "./team-handlers";
+export {
+  memSkillSearch,
+  memSkillGet,
+  memSkillRelated,
+  memSkillCreate,
+  memSkillDiscover,
+} from "./skill-handlers";
 
 /**
  * Get all tool definitions for MCP server registration.
@@ -68,5 +77,6 @@ export function getAllTools(): ToolDefinition[] {
     ...workflowHandlers,
     ...contextHandlers,
     ...teamHandlers,
+    ...skillHandlers,
   ];
 }

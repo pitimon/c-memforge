@@ -48,7 +48,7 @@ Restart to load the plugin. Verify with `mem_status` tool — should show connec
 
 ---
 
-## MCP Tools (16)
+## MCP Tools (21)
 
 ### Search (start here)
 
@@ -85,6 +85,16 @@ All search tools support `offset` for pagination, `dateStart`/`dateEnd` for filt
 | `mem_team_knowledge` | Search shared team knowledge pool               |
 | `mem_stable_context` | Get stable observation log (for prompt caching) |
 
+### SkillNet
+
+| Tool                 | Purpose                                    |
+| -------------------- | ------------------------------------------ |
+| `mem_skill_search`   | Search skills by query, category, or tags  |
+| `mem_skill_get`      | Get a specific skill with full details     |
+| `mem_skill_related`  | Find related skills via graph traversal    |
+| `mem_skill_create`   | Extract a reusable skill from observations |
+| `mem_skill_discover` | Browse the public skill catalog            |
+
 ### Data & Workflow
 
 | Tool                   | Purpose                                       |
@@ -119,7 +129,7 @@ claude-mem (local)          memforge-client (this plugin)          MemForge Serv
 LLM creates structured  →  SyncPoller reads SQLite     →  POST /api/sync/push
 observations in SQLite      every 2s (read-only)           stores + generates embeddings
 
-                            16 MCP tools  ←─────────────  Search, retrieve, graph queries
+                            21 MCP tools  ←─────────────  Search, retrieve, graph, skills
 ```
 
 - **claude-mem** creates structured observations via LLM (haiku) — this is the data source

@@ -223,6 +223,7 @@ const ALLOWED_API_PATHS = new Set([
   "/api/context/stable",
   "/api/teams",
   "/api/snapshots",
+  "/api/skills",
   "/health",
 ]);
 
