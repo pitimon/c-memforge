@@ -18,7 +18,10 @@ import { formatObservations, formatTimeline } from "../formatters";
 /** mem_semantic_get tool definition */
 export const memSemanticGet: ToolDefinition = {
   name: "mem_semantic_get",
-  description: "Get full observation by ID from remote server.",
+  description:
+    "Fetch a single observation by ID. " +
+    "Use AFTER mem_semantic_search or mem_timeline when you need full details of a specific result. " +
+    "For batch fetching multiple IDs, use mem_get_observations instead.",
   inputSchema: {
     type: "object",
     properties: {
@@ -48,7 +51,10 @@ export const memSemanticGet: ToolDefinition = {
 /** mem_semantic_recent tool definition */
 export const memSemanticRecent: ToolDefinition = {
   name: "mem_semantic_recent",
-  description: "Get recent observations from remote server.",
+  description:
+    "Get the most recent observations — useful for session context loading. " +
+    "Use mem_semantic_search FIRST if you have a specific query. " +
+    "Use this only when you need a chronological view of latest activity.",
   inputSchema: {
     type: "object",
     properties: {
@@ -75,7 +81,10 @@ export const memSemanticRecent: ToolDefinition = {
 export const memTimeline: ToolDefinition = {
   name: "mem_timeline",
   description:
-    "Get context around a specific observation ID from remote server. Returns observations before and after the anchor point.",
+    "Get temporal context around an observation — shows what happened before and after. " +
+    "Use AFTER mem_semantic_search to understand the timeline around a finding. " +
+    "Provide anchor (obs ID) or query (auto-finds anchor). " +
+    "Follow up with mem_get_observations for full details of interesting items.",
   inputSchema: {
     type: "object",
     properties: {
@@ -126,7 +135,9 @@ export const memTimeline: ToolDefinition = {
 export const memGetObservations: ToolDefinition = {
   name: "mem_get_observations",
   description:
-    "Fetch full observation details by IDs from remote server. Use after search/timeline to get complete narrative and context.",
+    "Batch fetch full observation details by IDs. " +
+    "Use AFTER mem_semantic_search or mem_timeline to get complete narratives. " +
+    "More efficient than multiple mem_semantic_get calls for bulk retrieval.",
   inputSchema: {
     type: "object",
     properties: {

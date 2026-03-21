@@ -11,8 +11,10 @@ import { callRemoteAPI, wrapError, wrapSuccess } from "../api-client";
 export const memWorkflowSuggest: ToolDefinition = {
   name: "mem_workflow_suggest",
   description:
-    "Suggest workflow templates based on recurring patterns in your observations. " +
-    "Returns step-by-step workflows that have been automatically induced from your work history.",
+    "Discover recurring workflow patterns from your observation history. " +
+    "Returns step-by-step templates with success rates. " +
+    "Use when starting a new task to check if a proven workflow exists. " +
+    "Use mem_skill_search instead for curated, structured skill patterns.",
   inputSchema: {
     type: "object",
     properties: {

@@ -11,8 +11,9 @@ import { postRemoteAPI, wrapError, wrapSuccess } from "../api-client";
 export const memIngest: ToolDefinition = {
   name: "mem_ingest",
   description:
-    "Ingest observations from external AI agents (Cursor, Aider, Codex, etc.). " +
-    "Supports single or batch mode with automatic provider-specific transformation.",
+    "Push observations from external AI agents (Cursor, Aider, Codex) into MemForge. " +
+    "Single or batch mode (max 100 items). " +
+    "Use this only for cross-agent ingestion — claude-mem handles Claude Code observations automatically.",
   inputSchema: {
     type: "object",
     properties: {

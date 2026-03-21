@@ -50,7 +50,11 @@ async function callSearchAPI(
 export const memSemanticSearch: ToolDefinition = {
   name: "mem_semantic_search",
   description:
-    "Hybrid search combining vector embeddings + FTS on remote server. Supports Thai and English queries with date filtering.",
+    "Primary search tool — use FIRST for any memory query. " +
+    "Supports 3 modes: hybrid (default, best for most queries), " +
+    "fts (exact keyword match), vector (semantic similarity). " +
+    "Use mem_timeline AFTER finding relevant obs to get surrounding context. " +
+    "Use mem_entity_lookup instead for entity-specific lookups.",
   inputSchema: {
     type: "object",
     properties: {
@@ -121,7 +125,9 @@ export const memSemanticSearch: ToolDefinition = {
 export const memHybridSearch: ToolDefinition = {
   name: "mem_hybrid_search",
   description:
-    "Hybrid search combining vector embeddings and FTS with RRF on remote server. Supports date filtering with timezone.",
+    "Dedicated hybrid search (vector + FTS with RRF ranking). " +
+    "Use mem_semantic_search instead — it supports hybrid mode and is more flexible. " +
+    "This tool exists for backward compatibility.",
   inputSchema: {
     type: "object",
     properties: {
@@ -182,7 +188,9 @@ export const memHybridSearch: ToolDefinition = {
 export const memVectorSearch: ToolDefinition = {
   name: "mem_vector_search",
   description:
-    "Pure vector/embedding search on remote server. Finds semantically similar content using embeddings.",
+    "Pure semantic/embedding search — finds conceptually similar content even with different wording. " +
+    "Use mem_semantic_search instead for most queries (hybrid mode combines this with keyword matching). " +
+    "Use this directly only when you need pure semantic similarity without keyword influence.",
   inputSchema: {
     type: "object",
     properties: {
@@ -237,7 +245,9 @@ export const memVectorSearch: ToolDefinition = {
 export const memSearch: ToolDefinition = {
   name: "mem_search",
   description:
-    "Full-text search on remote server. Returns observation IDs and metadata with date filtering support.",
+    "Keyword-only (FTS) search — exact text matching without semantic understanding. " +
+    "Use mem_semantic_search instead for most queries (it defaults to hybrid which includes FTS). " +
+    "Use this directly only when you need exact keyword match or want to filter by project/type.",
   inputSchema: {
     type: "object",
     properties: {

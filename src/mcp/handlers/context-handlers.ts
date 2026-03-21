@@ -36,9 +36,9 @@ interface CrossProjectResponse {
 export const memCrossProject: ToolDefinition = {
   name: "mem_cross_project",
   description:
-    "Find relevant observations from other projects based on shared concepts. " +
-    "Uses Memgraph graph traversal to identify concept overlap between projects. " +
-    "Only returns your own observations across projects.",
+    "Find knowledge from other projects that shares concepts with a target project. " +
+    "Uses graph traversal to discover cross-project insights. " +
+    "Use when working on a project and wondering if similar problems were solved elsewhere.",
   inputSchema: {
     type: "object",
     properties: {
@@ -124,9 +124,10 @@ interface StableContextResponse {
 export const memStableContext: ToolDefinition = {
   name: "mem_stable_context",
   description:
-    "Get the stable observation log for a session or project. " +
-    "Returns compressed, append-only context designed for prompt caching. " +
-    "Use this to load previous session context efficiently.",
+    "Load compressed session/project context — optimized for prompt caching. " +
+    "Requires sdk_session_id or project (at least one). " +
+    "Use at session start to efficiently restore previous context. " +
+    "Use mem_semantic_search instead for specific queries within that context.",
   inputSchema: {
     type: "object",
     properties: {

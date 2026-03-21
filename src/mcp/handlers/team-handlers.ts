@@ -29,9 +29,9 @@ interface TeamKnowledgeResponse {
 export const memTeamKnowledge: ToolDefinition = {
   name: "mem_team_knowledge",
   description:
-    "Search the team knowledge pool — observations shared by team members. " +
-    "Use this to find what other agents/users on the same team have learned. " +
-    "Requires team membership.",
+    "Search shared team knowledge — observations from team members. " +
+    "Use when you need context from other team members' work. " +
+    "Requires team membership. Use mem_semantic_search with include_shared instead for personal+shared combined results.",
   inputSchema: {
     type: "object",
     properties: {

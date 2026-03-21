@@ -27,7 +27,8 @@ function maskKey(key: string): string {
 export const memStatus: ToolDefinition = {
   name: "mem_status",
   description:
-    "Check MemForge client status: config source, API key, server connectivity, and auth validity.",
+    "Diagnostic tool — check client config, API key, server connectivity, and sync status. " +
+    "Use FIRST when troubleshooting connection issues or verifying setup.",
   inputSchema: {
     type: "object",
     properties: {},
