@@ -4,7 +4,8 @@
  * Format search results as markdown for MCP tool responses.
  */
 
-import type { SearchResponse } from '../types';
+import type { SearchResponse } from "../types";
+import { generateSearchHints, formatHints } from "../hints";
 
 /**
  * Format FTS search results as markdown.
@@ -13,8 +14,18 @@ import type { SearchResponse } from '../types';
  * @param offset - Pagination offset if provided
  * @returns Formatted markdown string
  */
-export function formatSearchResults(data: SearchResponse, offset?: number): string {
-  const { query, expanded_query, candidates_count, results_count, duration_ms, results } = data;
+export function formatSearchResults(
+  data: SearchResponse,
+  offset?: number,
+): string {
+  const {
+    query,
+    expanded_query,
+    candidates_count,
+    results_count,
+    duration_ms,
+    results,
+  } = data;
 
   let output = `## Search Results\n\n`;
   output += `**Query:** ${query}\n`;
@@ -35,11 +46,15 @@ export function formatSearchResults(data: SearchResponse, offset?: number): stri
   output += `|----|-------|------|-------|\n`;
 
   for (const r of results) {
-    const title = (r.title || '').length > 55 ? r.title!.slice(0, 52) + '...' : (r.title || '');
-    output += `| ${r.id} | ${r.score || '-'} | ${r.type || '-'} | ${title} |\n`;
+    const title =
+      (r.title || "").length > 55
+        ? r.title!.slice(0, 52) + "..."
+        : r.title || "";
+    output += `| ${r.id} | ${r.score || "-"} | ${r.type || "-"} | ${title} |\n`;
   }
 
   output += formatTopResultDetails(results[0]);
+  output += formatHints(generateSearchHints(results));
 
   return output;
 }
@@ -51,8 +66,19 @@ export function formatSearchResults(data: SearchResponse, offset?: number): stri
  * @param offset - Pagination offset if provided
  * @returns Formatted markdown string
  */
-export function formatHybridResults(data: SearchResponse, offset?: number): string {
-  const { query, method, vector_weight, fts_weight, results_count, duration_ms, results } = data;
+export function formatHybridResults(
+  data: SearchResponse,
+  offset?: number,
+): string {
+  const {
+    query,
+    method,
+    vector_weight,
+    fts_weight,
+    results_count,
+    duration_ms,
+    results,
+  } = data;
 
   let output = `## Hybrid Search Results\n\n`;
   output += `**Query:** ${query}\n`;
@@ -75,14 +101,18 @@ export function formatHybridResults(data: SearchResponse, offset?: number): stri
   output += `|----|-------|-----|-----|------|-------|\n`;
 
   for (const r of results) {
-    const title = (r.title || '').length > 45 ? r.title!.slice(0, 42) + '...' : (r.title || '');
-    const vecMark = (r.vector_score || 0) > 0 ? '✓' : '-';
-    const ftsMark = (r.fts_score || 0) > 0 ? '✓' : '-';
-    const score = r.combined_score || r.score || '-';
-    output += `| ${r.id} | ${typeof score === 'number' ? score.toFixed(3) : score} | ${vecMark} | ${ftsMark} | ${r.type || '-'} | ${title} |\n`;
+    const title =
+      (r.title || "").length > 45
+        ? r.title!.slice(0, 42) + "..."
+        : r.title || "";
+    const vecMark = (r.vector_score || 0) > 0 ? "✓" : "-";
+    const ftsMark = (r.fts_score || 0) > 0 ? "✓" : "-";
+    const score = r.combined_score || r.score || "-";
+    output += `| ${r.id} | ${typeof score === "number" ? score.toFixed(3) : score} | ${vecMark} | ${ftsMark} | ${r.type || "-"} | ${title} |\n`;
   }
 
   output += formatTopResultDetails(results[0], true);
+  output += formatHints(generateSearchHints(results));
 
   return output;
 }
@@ -94,8 +124,18 @@ export function formatHybridResults(data: SearchResponse, offset?: number): stri
  * @param offset - Pagination offset if provided
  * @returns Formatted markdown string
  */
-export function formatVectorResults(data: SearchResponse, offset?: number): string {
-  const { query, method, results_count, duration_ms, results, embeddings_count } = data;
+export function formatVectorResults(
+  data: SearchResponse,
+  offset?: number,
+): string {
+  const {
+    query,
+    method,
+    results_count,
+    duration_ms,
+    results,
+    embeddings_count,
+  } = data;
 
   let output = `## Vector Search Results\n\n`;
   output += `**Query:** ${query}\n`;
@@ -116,12 +156,16 @@ export function formatVectorResults(data: SearchResponse, offset?: number): stri
   output += `|----|-------|------|-------|\n`;
 
   for (const r of results) {
-    const title = (r.title || '').length > 50 ? r.title!.slice(0, 47) + '...' : (r.title || '');
-    const score = r.vector_score || r.score || '-';
-    output += `| ${r.id} | ${typeof score === 'number' ? score.toFixed(3) : score} | ${r.type || '-'} | ${title} |\n`;
+    const title =
+      (r.title || "").length > 50
+        ? r.title!.slice(0, 47) + "..."
+        : r.title || "";
+    const score = r.vector_score || r.score || "-";
+    output += `| ${r.id} | ${typeof score === "number" ? score.toFixed(3) : score} | ${r.type || "-"} | ${title} |\n`;
   }
 
   output += formatTopResultDetails(results[0], false, true);
+  output += formatHints(generateSearchHints(results));
 
   return output;
 }
@@ -135,13 +179,15 @@ export function formatVectorResults(data: SearchResponse, offset?: number): stri
  * @returns Formatted markdown string
  */
 function formatTopResultDetails(
-  top: SearchResponse['results'] extends (infer T)[] | undefined ? NonNullable<T> : never,
+  top: SearchResponse["results"] extends (infer T)[] | undefined
+    ? NonNullable<T>
+    : never,
   usesCombinedScore = false,
-  usesVectorScore = false
+  usesVectorScore = false,
 ): string {
   let output = `\n### Top Result Details\n\n`;
 
-  let topScore: string | number = top.score || '-';
+  let topScore: string | number = top.score || "-";
   if (usesCombinedScore && top.combined_score !== undefined) {
     topScore = top.combined_score;
   }
@@ -149,11 +195,11 @@ function formatTopResultDetails(
     topScore = top.vector_score;
   }
 
-  output += `**#${top.id}** (score: ${typeof topScore === 'number' ? topScore.toFixed(3) : topScore})\n\n`;
+  output += `**#${top.id}** (score: ${typeof topScore === "number" ? topScore.toFixed(3) : topScore})\n\n`;
   output += `**${top.title}**\n\n`;
   if (top.subtitle) output += `_${top.subtitle}_\n\n`;
   if (top.narrative) {
-    output += `${top.narrative.slice(0, 500)}${top.narrative.length > 500 ? '...' : ''}\n`;
+    output += `${top.narrative.slice(0, 500)}${top.narrative.length > 500 ? "..." : ""}\n`;
   }
 
   return output;

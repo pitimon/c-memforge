@@ -4,7 +4,17 @@
  * Format observation data as markdown for MCP tool responses.
  */
 
-import type { Observation, TimelineResponse, EntityLookupResponse, TripletsQueryResponse } from '../types';
+import type {
+  Observation,
+  TimelineResponse,
+  EntityLookupResponse,
+  TripletsQueryResponse,
+} from "../types";
+import {
+  generateTimelineHints,
+  generateObservationHints,
+  formatHints,
+} from "../hints";
 
 /**
  * Format observations as markdown.
@@ -17,21 +27,26 @@ export function formatObservations(observations: Observation[]): string {
 
   for (const obs of observations) {
     output += `---\n\n`;
-    output += `### #${obs.id} - ${obs.title || 'Untitled'}\n\n`;
-    output += `**Type:** ${obs.type || '-'} | **Project:** ${obs.project || '-'}\n`;
+    output += `### #${obs.id} - ${obs.title || "Untitled"}\n\n`;
+    output += `**Type:** ${obs.type || "-"} | **Project:** ${obs.project || "-"}\n`;
     if (obs.created_at) output += `**Created:** ${obs.created_at}\n`;
-    output += '\n';
+    output += "\n";
 
     if (obs.subtitle) output += `_${obs.subtitle}_\n\n`;
     if (obs.narrative) output += `${obs.narrative}\n\n`;
 
     if (obs.concepts) {
-      const concepts = typeof obs.concepts === 'string' ? JSON.parse(obs.concepts) : obs.concepts;
+      const concepts =
+        typeof obs.concepts === "string"
+          ? obs.concepts.split(",").map((c) => c.trim())
+          : (obs.concepts ?? []);
       if (Array.isArray(concepts) && concepts.length > 0) {
-        output += `**Concepts:** ${concepts.join(', ')}\n`;
+        output += `**Concepts:** ${concepts.join(", ")}\n`;
       }
     }
   }
+
+  output += formatHints(generateObservationHints(observations));
 
   return output;
 }
@@ -43,7 +58,10 @@ export function formatObservations(observations: Observation[]): string {
  * @param requestedAnchor - Anchor ID from request
  * @returns Formatted markdown string
  */
-export function formatTimeline(data: TimelineResponse, requestedAnchor?: number): string {
+export function formatTimeline(
+  data: TimelineResponse,
+  requestedAnchor?: number,
+): string {
   let output = `## Timeline Context\n\n`;
   output += `**Anchor:** #${data.anchor?.id || requestedAnchor}\n\n`;
 
@@ -52,17 +70,20 @@ export function formatTimeline(data: TimelineResponse, requestedAnchor?: number)
     output += `| ID | Type | Title |\n`;
     output += `|----|------|-------|\n`;
     for (const obs of data.before) {
-      const title = (obs.title || '').length > 50 ? obs.title!.slice(0, 47) + '...' : (obs.title || '');
-      output += `| ${obs.id} | ${obs.type || '-'} | ${title} |\n`;
+      const title =
+        (obs.title || "").length > 50
+          ? obs.title!.slice(0, 47) + "..."
+          : obs.title || "";
+      output += `| ${obs.id} | ${obs.type || "-"} | ${title} |\n`;
     }
-    output += '\n';
+    output += "\n";
   }
 
   if (data.anchor) {
     output += `### Anchor\n`;
     output += `**#${data.anchor.id}** - ${data.anchor.title}\n\n`;
     if (data.anchor.narrative) {
-      output += `${data.anchor.narrative.slice(0, 500)}${data.anchor.narrative.length > 500 ? '...' : ''}\n\n`;
+      output += `${data.anchor.narrative.slice(0, 500)}${data.anchor.narrative.length > 500 ? "..." : ""}\n\n`;
     }
   }
 
@@ -71,10 +92,15 @@ export function formatTimeline(data: TimelineResponse, requestedAnchor?: number)
     output += `| ID | Type | Title |\n`;
     output += `|----|------|-------|\n`;
     for (const obs of data.after) {
-      const title = (obs.title || '').length > 50 ? obs.title!.slice(0, 47) + '...' : (obs.title || '');
-      output += `| ${obs.id} | ${obs.type || '-'} | ${title} |\n`;
+      const title =
+        (obs.title || "").length > 50
+          ? obs.title!.slice(0, 47) + "..."
+          : obs.title || "";
+      output += `| ${obs.id} | ${obs.type || "-"} | ${title} |\n`;
     }
   }
+
+  output += formatHints(generateTimelineHints(data));
 
   return output;
 }
@@ -86,7 +112,10 @@ export function formatTimeline(data: TimelineResponse, requestedAnchor?: number)
  * @param entityName - Name of the looked up entity
  * @returns Formatted markdown string
  */
-export function formatEntityLookup(data: EntityLookupResponse, entityName: string): string {
+export function formatEntityLookup(
+  data: EntityLookupResponse,
+  entityName: string,
+): string {
   const allTriplets = [...(data.as_subject || []), ...(data.as_object || [])];
   const observations = data.related_observations || [];
 
@@ -99,7 +128,7 @@ export function formatEntityLookup(data: EntityLookupResponse, entityName: strin
     if (data.as_subject.length > 10) {
       output += `\n_...and ${data.as_subject.length - 10} more_\n`;
     }
-    output += '\n';
+    output += "\n";
   }
 
   if (data.as_object && data.as_object.length > 0) {
@@ -108,7 +137,7 @@ export function formatEntityLookup(data: EntityLookupResponse, entityName: strin
     if (data.as_object.length > 10) {
       output += `\n_...and ${data.as_object.length - 10} more_\n`;
     }
-    output += '\n';
+    output += "\n";
   }
 
   if (observations.length > 0) {
@@ -116,8 +145,11 @@ export function formatEntityLookup(data: EntityLookupResponse, entityName: strin
     output += `| ID | Type | Title |\n`;
     output += `|----|------|-------|\n`;
     for (const obs of observations.slice(0, 10)) {
-      const title = (obs.title || '').length > 50 ? obs.title!.slice(0, 47) + '...' : (obs.title || '');
-      output += `| ${obs.id} | ${obs.type || '-'} | ${title} |\n`;
+      const title =
+        (obs.title || "").length > 50
+          ? obs.title!.slice(0, 47) + "..."
+          : obs.title || "";
+      output += `| ${obs.id} | ${obs.type || "-"} | ${title} |\n`;
     }
     if (observations.length > 10) {
       output += `\n_...and ${observations.length - 10} more observations_\n`;
@@ -136,7 +168,7 @@ export function formatEntityLookup(data: EntityLookupResponse, entityName: strin
  */
 export function formatTripletsQuery(
   data: TripletsQueryResponse,
-  filters: { subject?: string; predicate?: string; object?: string }
+  filters: { subject?: string; predicate?: string; object?: string },
 ): string {
   let output = `## Triplets Query\n\n`;
   output += `**Filters:** `;
@@ -144,7 +176,7 @@ export function formatTripletsQuery(
   if (filters.subject) filterParts.push(`subject="${filters.subject}"`);
   if (filters.predicate) filterParts.push(`predicate="${filters.predicate}"`);
   if (filters.object) filterParts.push(`object="${filters.object}"`);
-  output += filterParts.length > 0 ? filterParts.join(', ') : 'none';
+  output += filterParts.length > 0 ? filterParts.join(", ") : "none";
   output += `\n`;
   output += `**Found:** ${data.triplets?.length || 0} triplets\n\n`;
 
@@ -152,9 +184,15 @@ export function formatTripletsQuery(
     output += `| Subject | Predicate | Object | Obs ID | Confidence |\n`;
     output += `|---------|-----------|--------|--------|------------|\n`;
     for (const t of data.triplets) {
-      const subj = (t.subject || '').length > 20 ? t.subject!.slice(0, 17) + '...' : (t.subject || '');
-      const obj = (t.object || '').length > 20 ? t.object!.slice(0, 17) + '...' : (t.object || '');
-      output += `| ${subj} | ${t.predicate} | ${obj} | ${t.observation_id || '-'} | ${t.confidence?.toFixed(2) || '-'} |\n`;
+      const subj =
+        (t.subject || "").length > 20
+          ? t.subject!.slice(0, 17) + "..."
+          : t.subject || "";
+      const obj =
+        (t.object || "").length > 20
+          ? t.object!.slice(0, 17) + "..."
+          : t.object || "";
+      output += `| ${subj} | ${t.predicate} | ${obj} | ${t.observation_id || "-"} | ${t.confidence?.toFixed(2) || "-"} |\n`;
     }
   } else {
     output += `_No triplets found matching filters_\n`;
@@ -169,16 +207,24 @@ export function formatTripletsQuery(
  * @param triplets - Array of triplets
  * @returns Formatted markdown table
  */
-function formatTripletsTable(triplets: EntityLookupResponse['as_subject']): string {
-  if (!triplets || triplets.length === 0) return '';
+function formatTripletsTable(
+  triplets: EntityLookupResponse["as_subject"],
+): string {
+  if (!triplets || triplets.length === 0) return "";
 
   let output = `| Subject | Predicate | Object | Confidence |\n`;
   output += `|---------|-----------|--------|------------|\n`;
 
   for (const t of triplets) {
-    const subj = (t.subject || '').length > 25 ? t.subject!.slice(0, 22) + '...' : (t.subject || '');
-    const obj = (t.object || '').length > 25 ? t.object!.slice(0, 22) + '...' : (t.object || '');
-    output += `| ${subj} | ${t.predicate} | ${obj} | ${t.confidence?.toFixed(2) || '-'} |\n`;
+    const subj =
+      (t.subject || "").length > 25
+        ? t.subject!.slice(0, 22) + "..."
+        : t.subject || "";
+    const obj =
+      (t.object || "").length > 25
+        ? t.object!.slice(0, 22) + "..."
+        : t.object || "";
+    output += `| ${subj} | ${t.predicate} | ${obj} | ${t.confidence?.toFixed(2) || "-"} |\n`;
   }
 
   return output;
