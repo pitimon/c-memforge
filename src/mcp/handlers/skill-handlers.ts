@@ -101,9 +101,10 @@ function formatSkill(s: SingleSkillResponse, index?: number): string {
 export const memSkillSearch: ToolDefinition = {
   name: "mem_skill_search",
   description:
-    "Search for reusable skill patterns stored in MemForge. " +
-    "Skills are structured, step-by-step procedures that can be discovered and reused across sessions. " +
-    "Filter by query text, category, or tags.",
+    "Search for reusable skill patterns — structured, step-by-step procedures. " +
+    "Use FIRST when starting a task to check for proven approaches. " +
+    "Follow up with mem_skill_get for full details, or mem_skill_related for similar skills. " +
+    "Use mem_workflow_suggest instead for auto-induced workflow patterns.",
   inputSchema: {
     type: "object",
     properties: {
@@ -165,7 +166,9 @@ export const memSkillSearch: ToolDefinition = {
 export const memSkillGet: ToolDefinition = {
   name: "mem_skill_get",
   description:
-    "Get a specific skill by ID with full details including steps, prerequisites, and schemas.",
+    "Get full skill details by ID — steps, prerequisites, schemas, and quality scores. " +
+    "Use AFTER mem_skill_search to get complete skill content. " +
+    "Use mem_skill_related to find similar or complementary skills.",
   inputSchema: {
     type: "object",
     properties: {
@@ -201,8 +204,9 @@ export const memSkillGet: ToolDefinition = {
 export const memSkillRelated: ToolDefinition = {
   name: "mem_skill_related",
   description:
-    "Find skills related to a given skill via graph traversal. " +
-    "Discovers similar skills, composition chains, and dependencies.",
+    "Find related skills via graph traversal — similar skills, composition chains, dependencies. " +
+    "Use AFTER mem_skill_get to discover complementary skills. " +
+    "Depth controls traversal hops (1-3).",
   inputSchema: {
     type: "object",
     properties: {
@@ -267,9 +271,10 @@ export const memSkillRelated: ToolDefinition = {
 export const memSkillCreate: ToolDefinition = {
   name: "mem_skill_create",
   description:
-    "Extract a reusable skill from conversation observations. " +
-    "Takes a session ID or observation IDs and synthesizes them into a structured skill " +
-    "with clear steps, tags, and evaluation scores.",
+    "Extract a reusable skill from session observations — synthesizes into structured steps. " +
+    "Requires session_id or observation_ids. " +
+    "Use AFTER completing a successful workflow to capture it for reuse. " +
+    "Follow up with mem_skill_get to review the extracted skill.",
   inputSchema: {
     type: "object",
     properties: {
@@ -328,8 +333,9 @@ export const memSkillCreate: ToolDefinition = {
 export const memSkillDiscover: ToolDefinition = {
   name: "mem_skill_discover",
   description:
-    "Discover skills shared by other users in the skill catalog. " +
-    "Browse publicly listed skills with ratings, fork counts, and categories.",
+    "Browse the public skill catalog — skills shared by other users with ratings and categories. " +
+    "Use when looking for community-proven approaches. " +
+    "Use mem_skill_search instead for your own skills.",
   inputSchema: {
     type: "object",
     properties: {

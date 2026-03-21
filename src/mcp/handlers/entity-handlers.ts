@@ -16,7 +16,9 @@ import { formatEntityLookup, formatTripletsQuery } from "../formatters";
 export const memEntityLookup: ToolDefinition = {
   name: "mem_entity_lookup",
   description:
-    "O(1) entity lookup - find observations and triplets related to an entity name. Returns all triplets where the entity appears as subject or object.",
+    "Fast entity lookup — find all knowledge graph relationships for a named entity. " +
+    "Use instead of mem_semantic_search when you know the exact entity name (file, concept, technology). " +
+    "Follow up with mem_triplets_query for filtered relationship queries.",
   inputSchema: {
     type: "object",
     properties: {
@@ -46,7 +48,10 @@ export const memEntityLookup: ToolDefinition = {
 export const memTripletsQuery: ToolDefinition = {
   name: "mem_triplets_query",
   description:
-    "Query SPO (Subject-Predicate-Object) triplets with filters. Predicates: is_type (observation type), belongs_to (project), modifies (file changes), relates_to (concept relationships).",
+    "Query knowledge graph relationships (Subject-Predicate-Object). " +
+    "Use AFTER mem_entity_lookup for filtered relationship queries. " +
+    "Predicates: is_type, belongs_to, modifies, relates_to. " +
+    "Use mem_entity_lookup instead for simple entity lookups.",
   inputSchema: {
     type: "object",
     properties: {
