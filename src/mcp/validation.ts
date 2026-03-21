@@ -192,6 +192,47 @@ const schemas: Record<string, z.ZodType> = {
     category: z.string().max(100).optional(),
     limit: limitField(100, 10),
   }),
+
+  // Temporal query
+  mem_temporal_query: z
+    .object({
+      q: z.string().max(2000).optional(),
+      before: z.string().max(200).optional(),
+      after: z.string().max(200).optional(),
+      during: z.string().max(200).optional(),
+      limit: limitField(100, 20),
+      tz: tzField,
+    })
+    .refine((d) => d.q || d.before || d.after || d.during, {
+      message: "At least one of q, before, after, or during is required",
+    }),
+
+  // Metadata tools
+  mem_pin: z.object({
+    observation_id: z.coerce.number().int().min(1),
+    pinned: z.boolean().optional().default(true),
+  }),
+
+  mem_set_importance: z.object({
+    observation_id: z.coerce.number().int().min(1),
+    score: z.coerce.number().min(0).max(1).nullable().optional(),
+  }),
+
+  mem_set_event_date: z.object({
+    observation_id: z.coerce.number().int().min(1),
+    event_date: z.string().max(50).nullable().optional(),
+  }),
+
+  mem_contradict: z.object({
+    observation_id: z.coerce.number().int().min(1),
+    correction: z.string().trim().min(1).max(50000),
+    title: z.string().max(500).optional(),
+  }),
+
+  mem_drift_check: z.object({
+    project: z.string().max(200).optional(),
+    limit: limitField(100, 20),
+  }),
 };
 
 /**
