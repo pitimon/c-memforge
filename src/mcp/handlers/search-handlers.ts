@@ -309,10 +309,118 @@ export const memSearch: ToolDefinition = {
   },
 };
 
+/** mem_temporal_query tool definition */
+export const memTemporalQuery: ToolDefinition = {
+  name: "mem_temporal_query",
+  description:
+    "Time-based search using natural language phrases ('yesterday', 'last week', '3 days ago'). " +
+    "Use instead of mem_semantic_search when the query is primarily about WHEN something happened. " +
+    "Supports Thai temporal phrases (เมื่อวาน, สัปดาห์ที่แล้ว, เดือนนี้).",
+  inputSchema: {
+    type: "object",
+    properties: {
+      q: {
+        type: "string",
+        description: "Search query text (optional — can search by time alone)",
+      },
+      before: {
+        type: "string",
+        description:
+          "Find observations before this time (ISO date or phrase: 'yesterday', '3 days ago')",
+      },
+      after: {
+        type: "string",
+        description:
+          "Find observations after this time (ISO date or phrase: 'last week')",
+      },
+      during: {
+        type: "string",
+        description:
+          "Find observations during this period ('yesterday', 'last week', 'this month')",
+      },
+      limit: {
+        type: "number",
+        description: "Max results (default: 20, max: 100)",
+      },
+      tz: {
+        type: "string",
+        description: "Timezone offset (default: UTC, e.g. +07:00)",
+      },
+    },
+  },
+  handler: async (args) => {
+    try {
+      if (!args.q && !args.before && !args.after && !args.during) {
+        return wrapError(
+          new Error("At least one of q, before, after, or during is required."),
+        );
+      }
+
+      const params: Record<string, unknown> = {
+        limit: args.limit ?? 20,
+      };
+      if (args.q) params.q = args.q;
+      if (args.before) params.before = args.before;
+      if (args.after) params.after = args.after;
+      if (args.during) params.during = args.during;
+      if (args.tz) params.tz = args.tz;
+
+      const data = (await callRemoteAPI("/api/search/temporal", params)) as {
+        results: Array<{
+          id: number;
+          title: string;
+          type: string;
+          narrative?: string;
+          created_at: string;
+        }>;
+        temporal?: {
+          resolved?: {
+            dateStart?: string;
+            dateEnd?: string;
+          };
+          source?: string;
+        };
+        result_count: number;
+      };
+
+      if (!data.results || data.results.length === 0) {
+        const resolved = data.temporal?.resolved;
+        const range = resolved
+          ? ` (resolved: ${resolved.dateStart ?? "?"} to ${resolved.dateEnd ?? "?"})`
+          : "";
+        return wrapSuccess(`No observations found for temporal query${range}.`);
+      }
+
+      const formatted = data.results
+        .map(
+          (o, i) =>
+            `${i + 1}. **#${o.id}** ${o.title}\n` +
+            `   Type: ${o.type} | Created: ${o.created_at.split("T")[0]}` +
+            (o.narrative
+              ? `\n   ${o.narrative.slice(0, 150)}${o.narrative.length > 150 ? "..." : ""}`
+              : ""),
+        )
+        .join("\n\n");
+
+      const resolved = data.temporal?.resolved;
+      const rangeInfo = resolved
+        ? `\nResolved range: ${resolved.dateStart ?? "?"} to ${resolved.dateEnd ?? "?"}`
+        : "";
+
+      return wrapSuccess(
+        `Found ${data.result_count} observation(s):${rangeInfo}\n\n${formatted}`,
+      );
+    } catch (error) {
+      return wrapError(error);
+    }
+  },
+};
+
 /** All search handlers */
 export const searchHandlers: ToolDefinition[] = [
   memSemanticSearch,
   memHybridSearch,
   memVectorSearch,
   memSearch,
+  memTemporalQuery,
 ];

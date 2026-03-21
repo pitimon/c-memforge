@@ -18,6 +18,7 @@ import { workflowHandlers } from "./workflow-handler";
 import { contextHandlers } from "./context-handlers";
 import { teamHandlers } from "./team-handlers";
 import { skillHandlers } from "./skill-handlers";
+import { metadataHandlers } from "./metadata-handlers";
 
 export {
   searchHandlers,
@@ -29,6 +30,7 @@ export {
   contextHandlers,
   teamHandlers,
   skillHandlers,
+  metadataHandlers,
 };
 
 // Re-export individual handlers for direct imports
@@ -61,6 +63,14 @@ export {
   memSkillCreate,
   memSkillDiscover,
 } from "./skill-handlers";
+export { memTemporalQuery } from "./search-handlers";
+export {
+  memPin,
+  memSetImportance,
+  memSetEventDate,
+  memContradict,
+  memDriftCheck,
+} from "./metadata-handlers";
 
 /**
  * Get all tool definitions for MCP server registration.
@@ -78,5 +88,6 @@ export function getAllTools(): ToolDefinition[] {
     ...contextHandlers,
     ...teamHandlers,
     ...skillHandlers,
+    ...metadataHandlers,
   ];
 }

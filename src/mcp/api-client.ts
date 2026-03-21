@@ -224,6 +224,8 @@ const ALLOWED_API_PATHS = new Set([
   "/api/teams",
   "/api/snapshots",
   "/api/skills",
+  "/api/search/temporal",
+  "/api/observations/drift-check",
   "/health",
 ]);
 
@@ -371,6 +373,46 @@ export async function postRemoteAPI(
     const resolvedEndpoint = resolveEndpoint(endpoint);
     const response = await fetch(`${remoteApiUrl}${resolvedEndpoint}`, {
       method: "POST",
+      headers: {
+        "X-API-Key": remoteApiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorData = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Make a PATCH request to the remote API.
+ * Used for observation updates (pin, importance, event_date).
+ */
+export async function patchRemoteAPI(
+  endpoint: string,
+  body: Record<string, unknown>,
+): Promise<unknown> {
+  if (!isRemoteEnabled()) {
+    throw new Error("Remote search not configured");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
+
+  try {
+    const resolvedEndpoint = resolveEndpoint(endpoint);
+    const response = await fetch(`${remoteApiUrl}${resolvedEndpoint}`, {
+      method: "PATCH",
       headers: {
         "X-API-Key": remoteApiKey,
         "Content-Type": "application/json",
