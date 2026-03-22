@@ -48,18 +48,17 @@ Restart to load the plugin. Verify with `mem_status` tool — should show connec
 
 ---
 
-## MCP Tools (21)
+## MCP Tools (27)
 
 ### Search (start here)
 
-| Tool                  | When to Use                                              | Speed  |
-| --------------------- | -------------------------------------------------------- | ------ |
-| `mem_search`          | Keyword search — fastest, use this first                 | 1-3s   |
-| `mem_hybrid_search`   | Balanced keyword + semantic (use `vector_weight=0.2`)    | 5-15s  |
-| `mem_semantic_search` | Flexible — choose mode: `fts`, `hybrid`, or `vector`     | varies |
-| `mem_vector_search`   | Pure semantic similarity — slowest, use only when needed | 10-38s |
-
-All search tools support `offset` for pagination, `dateStart`/`dateEnd` for filtering, and `tz` for timezone.
+| Tool                  | When to Use                                               |
+| --------------------- | --------------------------------------------------------- |
+| `mem_semantic_search` | **Primary** — use FIRST. Supports hybrid/fts/vector modes |
+| `mem_temporal_query`  | Time-based search ("yesterday", "last week", dates)       |
+| `mem_hybrid_search`   | Dedicated hybrid (backward compat — use semantic_search)  |
+| `mem_vector_search`   | Pure semantic similarity                                  |
+| `mem_search`          | Keyword-only (FTS) with project/type filter               |
 
 ### Retrieve
 
@@ -69,6 +68,16 @@ All search tools support `offset` for pagination, `dateStart`/`dateEnd` for filt
 | `mem_semantic_recent`  | Get recent observations                          |
 | `mem_timeline`         | Get context around an observation (before/after) |
 | `mem_get_observations` | Batch fetch multiple observations by IDs         |
+
+### Memory Curation
+
+| Tool                 | Purpose                                        |
+| -------------------- | ---------------------------------------------- |
+| `mem_pin`            | Pin observation — protect from decay/archival  |
+| `mem_set_importance` | Override importance score (0-1)                |
+| `mem_set_event_date` | Set temporal event date for time-based queries |
+| `mem_contradict`     | Mark stale + create correction observation     |
+| `mem_drift_check`    | Find oldest unverified observations            |
 
 ### Knowledge Graph
 
@@ -103,6 +112,8 @@ All search tools support `offset` for pagination, `dateStart`/`dateEnd` for filt
 | `mem_workflow_suggest` | Get workflow suggestions based on context     |
 | `mem_status`           | Check config, connectivity, auth, and latency |
 
+All tool responses include **workflow hints** (`suggested_next`) guiding you to the right follow-up tool.
+
 ---
 
 ## Configuration
@@ -127,9 +138,10 @@ For self-hosted servers, change `serverUrl` to your server URL.
 claude-mem (local)          memforge-client (this plugin)          MemForge Server
 ━━━━━━━━━━━━━━━━           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━           ━━━━━━━━━━━━━━
 LLM creates structured  →  SyncPoller reads SQLite     →  POST /api/sync/push
-observations in SQLite      every 2s (read-only)           stores + generates embeddings
+observations in SQLite      every 2-10s (adaptive)         stores + embeds + extracts entities
 
-                            21 MCP tools  ←─────────────  Search, retrieve, graph, skills
+                            27 MCP tools  ←─────────────  Search, curation, graph, skills
+                            + workflow hints                + 15 background workers
 ```
 
 - **claude-mem** creates structured observations via LLM (haiku) — this is the data source
