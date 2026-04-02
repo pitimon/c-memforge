@@ -298,19 +298,22 @@ export class SyncPoller {
           `[SyncPoller] Watermark restored from disk (obs=${this.lastObsId}, sum=${this.lastSumId})`,
         );
       } else {
+        // Fresh install: start from 0 to backfill all existing observations
+        this.lastObsId = 0;
+        this.lastSumId = 0;
+
         const obsRow = this.db
           .query("SELECT MAX(id) as maxId FROM observations")
           .get() as { maxId: number | null } | null;
-        this.lastObsId = obsRow?.maxId || 0;
+        const totalObs = obsRow?.maxId || 0;
 
-        const sumRow = this.db
-          .query("SELECT MAX(id) as maxId FROM session_summaries")
-          .get() as { maxId: number | null } | null;
-        this.lastSumId = sumRow?.maxId || 0;
-
-        this.log(
-          `[SyncPoller] No watermark file — initialized from MAX(id) (obs=${this.lastObsId}, sum=${this.lastSumId})`,
-        );
+        if (totalObs > 0) {
+          this.log(
+            `[SyncPoller] Fresh install — backfilling ${totalObs} existing observations`,
+          );
+        } else {
+          this.log("[SyncPoller] Fresh install — no existing observations");
+        }
       }
 
       this.scheduleNextPoll(this.basePollInterval);
