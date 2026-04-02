@@ -160,26 +160,70 @@ Sync runs in-process with the MCP server. No separate daemon or background proce
 
 ## Troubleshooting
 
-| Problem                        | Solution                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------- |
-| "Remote search not configured" | Check `~/.memforge/config.json` has valid `apiKey`                        |
-| "Required: claude-mem plugin"  | Install: `/plugin marketplace add thedotmack/claude-mem`                  |
-| "bun: command not found"       | Install: `curl -fsSL https://bun.sh/install \| bash`                      |
-| SSH error on plugin install    | Use HTTPS: `claude plugin marketplace add pitimon/c-memforge`             |
-| Sync not working               | Run `mem_status` tool. Check `syncEnabled: true` in config                |
-| Slow search                    | Use `mem_search` (FTS) instead of vector. Add date filters. Lower `limit` |
+| Problem                        | Solution                                                                                            |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| "Remote search not configured" | Check `~/.memforge/config.json` has valid `apiKey`                                                  |
+| "Required: claude-mem plugin"  | Install: `/plugin marketplace add thedotmack/claude-mem`                                            |
+| "bun: command not found"       | Install: `curl -fsSL https://bun.sh/install \| bash`                                                |
+| SSH error on plugin install    | Use HTTPS: `claude plugin marketplace add pitimon/c-memforge`                                       |
+| Sync not working               | Run `mem_status` tool. Check `syncEnabled: true` in config                                          |
+| Slow search                    | Use `mem_search` (FTS) instead of vector. Add date filters. Lower `limit`                           |
+| MCP server won't start         | Missing dependencies — see [First-run dependency install](#first-run-dependency-install) below      |
+| Old observations not syncing   | Remove watermark file — see [Backfill existing observations](#backfill-existing-observations) below |
+| Claude Code hangs on startup   | claude-mem `smart-install.js` runs `bun install` — wait 30-60s or check network                     |
+| Old db-watcher zombie process  | See [Upgrading from v1.x](#upgrading-from-v1x) below                                                |
+
+### First-run dependency install
+
+After `claude plugin install`, the MCP server may fail to connect because dependencies aren't installed in the cache directory. Fix:
+
+```bash
+# Find the cache directory and install dependencies
+cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
+bun install
+```
+
+Then reconnect: run `/mcp` in Claude Code and reconnect memforge, or restart Claude Code.
+
+### Backfill existing observations
+
+If you installed c-memforge after using claude-mem for a while, your existing observations may not have synced. To backfill:
+
+```bash
+# Remove watermark — next startup will sync all observations from the beginning
+rm -f ~/.memforge/.sync-watermark.json
+```
+
+Restart Claude Code. The SyncPoller will log:
+
+```
+[SyncPoller] Fresh install — backfilling N existing observations
+```
+
+Server-side deduplication prevents duplicates, so this is safe to run anytime.
 
 ### Upgrading from v1.x
 
-v2.0 removed the background sync daemon. If upgrading, clean up legacy files:
+v2.0+ moved sync into the MCP server process. If upgrading from v1.x, clean up legacy processes and files:
 
 ```bash
 # Kill old daemon if still running
-ps aux | grep db-watcher | grep -v grep | awk '{print $2}' | xargs kill 2>/dev/null
+pkill -f db-watcher 2>/dev/null
+
+# Remove old plugin cache (may spawn zombie db-watcher)
+rm -rf ~/.claude/plugins/cache/pitimon-c-memforge/
 
 # Remove legacy state files
-rm -f ~/.memforge/.sync-watermark.json ~/.memforge/.sync-queue.json
+rm -f ~/.memforge/.sync-queue.json
 rm -f ~/.claude-mem/memforge-sync.pid ~/.claude-mem/memforge-sync.log
+```
+
+Then reinstall fresh:
+
+```bash
+claude plugin uninstall memforge-client@pitimon-c-memforge
+claude plugin marketplace add pitimon/c-memforge
+claude plugin install memforge-client@pitimon-c-memforge
 ```
 
 ## Updating
