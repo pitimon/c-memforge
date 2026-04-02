@@ -19,10 +19,16 @@
 1. **Bun runtime**: `curl -fsSL https://bun.sh/install | bash`
 2. **claude-mem plugin**: `/plugin marketplace add thedotmack/claude-mem`
 
-### Step 1: Install Plugin
+### Step 1: Add Marketplace + Install Plugin
 
-```
-/plugin marketplace add https://github.com/pitimon/c-memforge.git
+Run these commands in your **terminal** (not inside Claude Code):
+
+```bash
+# Add the marketplace source
+claude plugin marketplace add pitimon/c-memforge
+
+# Install the plugin
+claude plugin install memforge-client@pitimon-c-memforge
 ```
 
 ### Step 2: Configure API Key
@@ -154,14 +160,14 @@ Sync runs in-process with the MCP server. No separate daemon or background proce
 
 ## Troubleshooting
 
-| Problem                        | Solution                                                                                 |
-| ------------------------------ | ---------------------------------------------------------------------------------------- |
-| "Remote search not configured" | Check `~/.memforge/config.json` has valid `apiKey`                                       |
-| "Required: claude-mem plugin"  | Install: `/plugin marketplace add thedotmack/claude-mem`                                 |
-| "bun: command not found"       | Install: `curl -fsSL https://bun.sh/install \| bash`                                     |
-| SSH error on plugin install    | Use HTTPS URL: `claude plugin marketplace add https://github.com/pitimon/c-memforge.git` |
-| Sync not working               | Run `mem_status` tool. Check `syncEnabled: true` in config                               |
-| Slow search                    | Use `mem_search` (FTS) instead of vector. Add date filters. Lower `limit`                |
+| Problem                        | Solution                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------- |
+| "Remote search not configured" | Check `~/.memforge/config.json` has valid `apiKey`                        |
+| "Required: claude-mem plugin"  | Install: `/plugin marketplace add thedotmack/claude-mem`                  |
+| "bun: command not found"       | Install: `curl -fsSL https://bun.sh/install \| bash`                      |
+| SSH error on plugin install    | Use HTTPS: `claude plugin marketplace add pitimon/c-memforge`             |
+| Sync not working               | Run `mem_status` tool. Check `syncEnabled: true` in config                |
+| Slow search                    | Use `mem_search` (FTS) instead of vector. Add date filters. Lower `limit` |
 
 ### Upgrading from v1.x
 
@@ -178,8 +184,8 @@ rm -f ~/.claude-mem/memforge-sync.pid ~/.claude-mem/memforge-sync.log
 
 ## Updating
 
-```
-/plugin marketplace update pitimon-c-memforge
+```bash
+claude plugin update pitimon-c-memforge
 ```
 
 Config at `~/.memforge/config.json` is preserved. Restart Claude Code after updating.
