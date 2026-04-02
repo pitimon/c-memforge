@@ -69,6 +69,7 @@ const MAX_DB_WAIT_ATTEMPTS = 60; // 5 minutes max wait
 const MIN_POLL_INTERVAL = 1000; // 1s when active
 const MAX_POLL_INTERVAL = 10000; // 10s when idle
 const IDLE_THRESHOLD = 5; // idle after 5 consecutive empty polls
+const SYNC_BATCH_SIZE = 100; // max rows per sync batch (prevents OOM + timeout)
 
 // Circuit breaker constants
 const CIRCUIT_THRESHOLD = 3; // open after 3 consecutive sync failures
@@ -382,103 +383,130 @@ export class SyncPoller {
   private async checkNewObservations(): Promise<number> {
     if (!this.db) return 0;
 
-    const rows = this.db
-      .query(
-        `
-      SELECT o.id, o.type, o.title, o.subtitle, o.narrative, o.project, o.text,
-             o.facts, o.concepts, o.files_read, o.files_modified,
-             o.created_at, o.created_at_epoch, o.memory_session_id,
-             o.prompt_number, o.discovery_tokens, s.id as sdk_session_id
-      FROM observations o
-      LEFT JOIN sdk_sessions s ON o.memory_session_id = s.memory_session_id
-      WHERE o.id > $lastObsId
-      ORDER BY o.id ASC
-    `,
-      )
-      .all({ $lastObsId: this.lastObsId }) as ObservationRow[];
+    let totalProcessed = 0;
 
-    if (rows.length === 0) return 0;
+    // Batch loop: process SYNC_BATCH_SIZE rows at a time to prevent OOM
+    while (true) {
+      const rows = this.db
+        .query(
+          `
+        SELECT o.id, o.type, o.title, o.subtitle, o.narrative, o.project, o.text,
+               o.facts, o.concepts, o.files_read, o.files_modified,
+               o.created_at, o.created_at_epoch, o.memory_session_id,
+               o.prompt_number, o.discovery_tokens, s.id as sdk_session_id
+        FROM observations o
+        LEFT JOIN sdk_sessions s ON o.memory_session_id = s.memory_session_id
+        WHERE o.id > $lastObsId
+        ORDER BY o.id ASC
+        LIMIT $batchSize
+      `,
+        )
+        .all({
+          $lastObsId: this.lastObsId,
+          $batchSize: SYNC_BATCH_SIZE,
+        }) as ObservationRow[];
 
-    const observations = rows.map((row) => ({
-      id: row.id,
-      sdk_session_id: row.sdk_session_id || 1,
-      type: row.type,
-      title: row.title,
-      subtitle: row.subtitle,
-      narrative: row.narrative,
-      project: row.project,
-      text: row.text,
-      facts: row.facts || "[]",
-      concepts: row.concepts || "[]",
-      files_read: row.files_read || "[]",
-      files_modified: row.files_modified || "[]",
-      created_at: row.created_at,
-      created_at_epoch: row.created_at_epoch || Math.floor(Date.now() / 1000),
-      prompt_number: row.prompt_number || 0,
-      discovery_tokens: row.discovery_tokens || 0,
-    }));
+      if (rows.length === 0) break;
 
-    const result = await remoteSync.syncBatch(observations);
-    this.syncedCount += result.synced;
-    this.failedCount += result.failed;
+      const observations = rows.map((row) => ({
+        id: row.id,
+        sdk_session_id: row.sdk_session_id || 1,
+        type: row.type,
+        title: row.title,
+        subtitle: row.subtitle,
+        narrative: row.narrative,
+        project: row.project,
+        text: row.text,
+        facts: row.facts || "[]",
+        concepts: row.concepts || "[]",
+        files_read: row.files_read || "[]",
+        files_modified: row.files_modified || "[]",
+        created_at: row.created_at,
+        created_at_epoch: row.created_at_epoch || Math.floor(Date.now() / 1000),
+        prompt_number: row.prompt_number || 0,
+        discovery_tokens: row.discovery_tokens || 0,
+      }));
 
-    if (result.failed === 0) {
-      this.lastObsId = rows[rows.length - 1].id;
-      saveWatermark(this.lastObsId, this.lastSumId);
+      const result = await remoteSync.syncBatch(observations);
+      this.syncedCount += result.synced;
+      this.failedCount += result.failed;
+      totalProcessed += rows.length;
+
+      // Advance watermark only past successfully synced items
+      if (result.synced > 0) {
+        const advanceTo = Math.min(result.synced, rows.length);
+        this.lastObsId = rows[advanceTo - 1].id;
+        saveWatermark(this.lastObsId, this.lastSumId);
+      }
+
+      // Stop batching if sync had failures or batch was not full
+      if (result.failed > 0 || rows.length < SYNC_BATCH_SIZE) break;
     }
 
-    return rows.length;
+    return totalProcessed;
   }
 
   private async checkNewSummaries(): Promise<number> {
     if (!this.db) return 0;
 
-    const rows = this.db
-      .query(
-        `
-      SELECT s.id, s.memory_session_id, s.project, s.request, s.investigated,
-             s.learned, s.completed, s.next_steps, s.files_read, s.files_edited,
-             s.notes, s.prompt_number, s.created_at, s.created_at_epoch,
-             s.discovery_tokens, ss.id as sdk_session_id
-      FROM session_summaries s
-      LEFT JOIN sdk_sessions ss ON s.memory_session_id = ss.memory_session_id
-      WHERE s.id > $lastSumId
-      ORDER BY s.id ASC
-    `,
-      )
-      .all({ $lastSumId: this.lastSumId }) as SummaryRow[];
+    let totalProcessed = 0;
 
-    if (rows.length === 0) return 0;
+    while (true) {
+      const rows = this.db
+        .query(
+          `
+        SELECT s.id, s.memory_session_id, s.project, s.request, s.investigated,
+               s.learned, s.completed, s.next_steps, s.files_read, s.files_edited,
+               s.notes, s.prompt_number, s.created_at, s.created_at_epoch,
+               s.discovery_tokens, ss.id as sdk_session_id
+        FROM session_summaries s
+        LEFT JOIN sdk_sessions ss ON s.memory_session_id = ss.memory_session_id
+        WHERE s.id > $lastSumId
+        ORDER BY s.id ASC
+        LIMIT $batchSize
+      `,
+        )
+        .all({
+          $lastSumId: this.lastSumId,
+          $batchSize: SYNC_BATCH_SIZE,
+        }) as SummaryRow[];
 
-    const summaries = rows.map((row) => ({
-      id: row.id,
-      sdk_session_id: row.sdk_session_id || 1,
-      memory_session_id: row.memory_session_id,
-      project: row.project,
-      request: row.request,
-      investigated: row.investigated,
-      learned: row.learned,
-      completed: row.completed,
-      next_steps: row.next_steps,
-      files_read: row.files_read || "[]",
-      files_edited: row.files_edited || "[]",
-      notes: row.notes,
-      prompt_number: row.prompt_number || 0,
-      created_at: row.created_at,
-      created_at_epoch: row.created_at_epoch || Math.floor(Date.now() / 1000),
-      discovery_tokens: row.discovery_tokens || 0,
-    }));
+      if (rows.length === 0) break;
 
-    const result = await remoteSync.syncSummaries(summaries);
-    this.syncedCount += result.synced;
-    this.failedCount += result.failed;
+      const summaries = rows.map((row) => ({
+        id: row.id,
+        sdk_session_id: row.sdk_session_id || 1,
+        memory_session_id: row.memory_session_id,
+        project: row.project,
+        request: row.request,
+        investigated: row.investigated,
+        learned: row.learned,
+        completed: row.completed,
+        next_steps: row.next_steps,
+        files_read: row.files_read || "[]",
+        files_edited: row.files_edited || "[]",
+        notes: row.notes,
+        prompt_number: row.prompt_number || 0,
+        created_at: row.created_at,
+        created_at_epoch: row.created_at_epoch || Math.floor(Date.now() / 1000),
+        discovery_tokens: row.discovery_tokens || 0,
+      }));
 
-    if (result.failed === 0) {
-      this.lastSumId = rows[rows.length - 1].id;
-      saveWatermark(this.lastObsId, this.lastSumId);
+      const result = await remoteSync.syncSummaries(summaries);
+      this.syncedCount += result.synced;
+      this.failedCount += result.failed;
+      totalProcessed += rows.length;
+
+      if (result.synced > 0) {
+        const advanceTo = Math.min(result.synced, rows.length);
+        this.lastSumId = rows[advanceTo - 1].id;
+        saveWatermark(this.lastObsId, this.lastSumId);
+      }
+
+      if (result.failed > 0 || rows.length < SYNC_BATCH_SIZE) break;
     }
 
-    return rows.length;
+    return totalProcessed;
   }
 
   /**

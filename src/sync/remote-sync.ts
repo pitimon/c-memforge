@@ -147,9 +147,16 @@ export class RemoteSync {
         observations?: { inserted: number; updated: number };
       };
       const totalSynced =
-        (result.observations?.inserted || 0) +
-        (result.observations?.updated || 0);
-      return { synced: totalSynced || observations.length, failed: 0 };
+        (result.observations?.inserted ?? 0) +
+        (result.observations?.updated ?? 0);
+      // Treat zero-sync on non-empty batch as failure (prevents watermark advancing past unsynced items)
+      if (totalSynced === 0 && observations.length > 0) {
+        for (const obs of observations) {
+          pendingQueue.add(obs);
+        }
+        return { synced: 0, failed: observations.length };
+      }
+      return { synced: totalSynced, failed: observations.length - totalSynced };
     } catch (err) {
       // Queue all for retry via in-memory queue
       for (const obs of observations) {
@@ -219,8 +226,11 @@ export class RemoteSync {
         summaries?: { inserted: number; updated: number };
       };
       const totalSynced =
-        (result.summaries?.inserted || 0) + (result.summaries?.updated || 0);
-      return { synced: totalSynced || summaries.length, failed: 0 };
+        (result.summaries?.inserted ?? 0) + (result.summaries?.updated ?? 0);
+      if (totalSynced === 0 && summaries.length > 0) {
+        return { synced: 0, failed: summaries.length };
+      }
+      return { synced: totalSynced, failed: summaries.length - totalSynced };
     } catch {
       return { synced: 0, failed: summaries.length };
     }
