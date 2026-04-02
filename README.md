@@ -36,7 +36,6 @@ claude plugin install memforge-client@pitimon-c-memforge
 Get your API key at https://memclaude.thaicloud.ai/settings, then create the config:
 
 ```bash
-mkdir -p ~/.memforge
 cat > ~/.memforge/config.json << 'EOF'
 {
   "apiKey": "your-api-key-here",
