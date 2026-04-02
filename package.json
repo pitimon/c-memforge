@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "setup": "bun scripts/setup.ts",
-    "postinstall": "echo 'Run: bun run setup [your-api-key]'",
+    "postinstall": "mkdir -p ~/.memforge && echo 'Run: bun run setup [your-api-key]'",
     "check": "bun scripts/check-dependency.ts",
     "mcp": "bun src/mcp/mcp-server.ts"
   },
