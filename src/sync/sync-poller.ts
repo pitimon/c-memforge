@@ -7,20 +7,60 @@
  * Key differences from DatabaseWatcher:
  * - No process.exit() — MCP server must stay alive
  * - No standalone entry point — always imported
- * - Watermark in-memory only (server dedup handles restart overlap)
+ * - Watermark persisted to ~/.memforge/.sync-watermark.json (restored on restart)
  * - Logger injected (MCP stdout = JSON-RPC, must use stderr)
  * - All errors caught — never crashes host process
  * - Adaptive polling: speeds up when active, slows down when idle
  * - Circuit breaker: suppresses HTTP calls during server outages
  */
 
-import { existsSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 import { Database } from "bun:sqlite";
 import { remoteSync } from "./remote-sync";
 
 const DB_PATH = join(homedir(), ".claude-mem/claude-mem.db");
+const WATERMARK_PATH = join(homedir(), ".memforge", ".sync-watermark.json");
+
+/** Persisted watermark — tracks last synced observation/summary IDs */
+interface Watermark {
+  lastObservationId: number;
+  lastSummaryId: number;
+  updatedAt: string;
+}
+
+/** Load watermark from disk. Returns null if file missing or corrupt. */
+function loadWatermark(): Watermark | null {
+  try {
+    if (existsSync(WATERMARK_PATH)) {
+      return JSON.parse(readFileSync(WATERMARK_PATH, "utf-8"));
+    }
+  } catch {
+    /* ignore parse errors — start fresh */
+  }
+  return null;
+}
+
+/** Save watermark to disk after successful sync. */
+function saveWatermark(obsId: number, sumId: number): void {
+  try {
+    writeFileSync(
+      WATERMARK_PATH,
+      JSON.stringify(
+        {
+          lastObservationId: obsId,
+          lastSummaryId: sumId,
+          updatedAt: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+    );
+  } catch {
+    /* ignore write errors — non-fatal */
+  }
+}
 const DEFAULT_POLL_INTERVAL = 2000;
 const DB_WAIT_INTERVAL = 5000;
 const MAX_DB_WAIT_ATTEMPTS = 60; // 5 minutes max wait
@@ -139,6 +179,11 @@ export class SyncPoller {
 
     this.running = false;
 
+    // Persist watermark before cleanup
+    if (this.lastObsId > 0 || this.lastSumId > 0) {
+      saveWatermark(this.lastObsId, this.lastSumId);
+    }
+
     if (this.pollTimer) {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;
@@ -244,20 +289,29 @@ export class SyncPoller {
         return;
       }
 
-      // Initialize watermark from MAX(id) — server dedup handles any overlap
-      const obsRow = this.db
-        .query("SELECT MAX(id) as maxId FROM observations")
-        .get() as { maxId: number | null } | null;
-      this.lastObsId = obsRow?.maxId || 0;
+      // Initialize watermark: try disk first, fall back to MAX(id)
+      const saved = loadWatermark();
+      if (saved) {
+        this.lastObsId = saved.lastObservationId;
+        this.lastSumId = saved.lastSummaryId;
+        this.log(
+          `[SyncPoller] Watermark restored from disk (obs=${this.lastObsId}, sum=${this.lastSumId})`,
+        );
+      } else {
+        const obsRow = this.db
+          .query("SELECT MAX(id) as maxId FROM observations")
+          .get() as { maxId: number | null } | null;
+        this.lastObsId = obsRow?.maxId || 0;
 
-      const sumRow = this.db
-        .query("SELECT MAX(id) as maxId FROM session_summaries")
-        .get() as { maxId: number | null } | null;
-      this.lastSumId = sumRow?.maxId || 0;
+        const sumRow = this.db
+          .query("SELECT MAX(id) as maxId FROM session_summaries")
+          .get() as { maxId: number | null } | null;
+        this.lastSumId = sumRow?.maxId || 0;
 
-      this.log(
-        `[SyncPoller] Connected (obs=${this.lastObsId}, sum=${this.lastSumId})`,
-      );
+        this.log(
+          `[SyncPoller] No watermark file — initialized from MAX(id) (obs=${this.lastObsId}, sum=${this.lastSumId})`,
+        );
+      }
 
       this.scheduleNextPoll(this.basePollInterval);
     } catch (error) {
@@ -367,6 +421,7 @@ export class SyncPoller {
 
     if (result.failed === 0) {
       this.lastObsId = rows[rows.length - 1].id;
+      saveWatermark(this.lastObsId, this.lastSumId);
     }
 
     return rows.length;
@@ -417,8 +472,20 @@ export class SyncPoller {
 
     if (result.failed === 0) {
       this.lastSumId = rows[rows.length - 1].id;
+      saveWatermark(this.lastObsId, this.lastSumId);
     }
 
     return rows.length;
+  }
+
+  /**
+   * Reset watermark to sync from a specific ID.
+   * Use for backfilling observations that were created before plugin install.
+   */
+  backfillFrom(startId: number): void {
+    this.lastObsId = startId;
+    this.lastSumId = 0;
+    saveWatermark(startId, 0);
+    this.log(`[SyncPoller] Backfill started from obs=${startId}`);
   }
 }
