@@ -133,8 +133,9 @@ export async function fetchAndCacheTier(): Promise<void> {
       signal: controller.signal,
     });
     if (response.ok) {
-      const data = (await response.json()) as { data?: { tier?: string } };
-      cachedTier = data.data?.tier || null;
+      const data = (await response.json()) as { tier?: string; data?: { tier?: string } };
+      const tier = data.tier || data.data?.tier || null;
+      cachedTier = tier === "default" ? null : tier;
     }
   } catch {
     // Non-blocking — tier stays null on failure
