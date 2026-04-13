@@ -11,6 +11,7 @@ import {
   getApiKey,
   isRemoteEnabled,
   getRole,
+  getTier,
   wrapSuccess,
 } from "../api-client";
 import { syncPoller } from "../mcp-server";
@@ -40,6 +41,8 @@ export const memStatus: ToolDefinition = {
     const source = getConfigSource();
     lines.push(`**Config:** ${source || "not found"}`);
     lines.push(`**Role:** ${getRole()}`);
+    const tier = getTier();
+    lines.push(`**Tier:** ${tier || "unknown (legacy key)"}`);
     lines.push(`**API Key:** ${maskKey(getApiKey())}`);
     lines.push(`**Server:** ${getRemoteUrl()}`);
     lines.push("");
@@ -96,6 +99,11 @@ export const memStatus: ToolDefinition = {
 
       if (authResponse.ok) {
         lines.push(`**Auth:** Valid`);
+        if (getTier() === "free") {
+          lines.push(
+            "  _Free tier: vector/hybrid search restricted. Use FTS mode._",
+          );
+        }
       } else if (authResponse.status === 401 || authResponse.status === 403) {
         lines.push(`**Auth:** Invalid API key (${authResponse.status})`);
         lines.push("");
