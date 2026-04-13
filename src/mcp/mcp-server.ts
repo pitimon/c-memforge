@@ -30,6 +30,7 @@ import {
   isRemoteEnabled,
   getRemoteUrl,
   resolveConfigPath,
+  fetchAndCacheTier,
 } from "./api-client";
 import { getAllTools } from "./handlers";
 import { validateToolInput } from "./validation";
@@ -153,6 +154,9 @@ async function main() {
 
   // Start sync poller after MCP server is connected
   await initSync();
+
+  // Fetch tier info (non-blocking, informational only)
+  await fetchAndCacheTier();
 }
 
 main().catch((error) => {

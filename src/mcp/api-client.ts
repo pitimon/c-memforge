@@ -30,6 +30,9 @@ let remoteApiUrl = process.env.CLAUDE_MEM_REMOTE_URL || DEFAULT_REMOTE_URL;
 // Role-based access control
 let pluginRole: "client" | "admin" = "client";
 
+// Cached tier from server (fetched async on startup, informational only)
+let cachedTier: string | null = null;
+
 // Track which config was loaded for diagnostics
 let configSource: string | null = null;
 
@@ -108,6 +111,36 @@ export function initializeApiKey(): void {
 /** Get current plugin role */
 export function getRole(): "client" | "admin" {
   return pluginRole;
+}
+
+/** Get cached tier from server (null = unknown/not fetched) */
+export function getTier(): string | null {
+  return cachedTier;
+}
+
+/**
+ * Fetch tier from /api/auth/me and cache in memory.
+ * Non-blocking: logs on failure, defaults to null.
+ * Uses raw fetch (not callRemoteAPI) — /api/auth/me is not in ALLOWED_API_PATHS.
+ */
+export async function fetchAndCacheTier(): Promise<void> {
+  if (!isRemoteEnabled()) return;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(`${remoteApiUrl}/api/auth/me`, {
+      headers: { "X-API-Key": remoteApiKey },
+      signal: controller.signal,
+    });
+    if (response.ok) {
+      const data = (await response.json()) as { data?: { tier?: string } };
+      cachedTier = data.data?.tier || null;
+    }
+  } catch {
+    // Non-blocking — tier stays null on failure
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /** Get config source path for diagnostics */

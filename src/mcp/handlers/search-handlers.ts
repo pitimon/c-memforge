@@ -5,7 +5,16 @@
  */
 
 import type { ToolDefinition, ToolResponse, SearchResponse } from "../types";
-import { callRemoteAPI, wrapError, wrapSuccess } from "../api-client";
+import { callRemoteAPI, getTier, wrapError, wrapSuccess } from "../api-client";
+
+/** Informational note if search mode may be tier-restricted. */
+function tierSearchNote(mode: string): string {
+  const tier = getTier();
+  if (tier === "free" && (mode === "vector" || mode === "hybrid")) {
+    return `> Note: '${mode}' search requires pro tier. Server may return 403.\n\n`;
+  }
+  return "";
+}
 import {
   formatSearchResults,
   formatHybridResults,
@@ -171,7 +180,8 @@ export const memHybridSearch: ToolDefinition = {
     required: ["q"],
   },
   handler: async (args) => {
-    return await callSearchAPI("/hybrid", {
+    const note = tierSearchNote("hybrid");
+    const result = await callSearchAPI("/hybrid", {
       q: args.q,
       limit: args.limit || 10,
       offset: args.offset,
@@ -181,6 +191,10 @@ export const memHybridSearch: ToolDefinition = {
       tz: args.tz,
       include_shared: args.include_shared,
     });
+    if (note && result.content[0]?.type === "text") {
+      return { ...result, content: [{ ...result.content[0], text: note + result.content[0].text }] };
+    }
+    return result;
   },
 };
 
@@ -229,7 +243,8 @@ export const memVectorSearch: ToolDefinition = {
     required: ["q"],
   },
   handler: async (args) => {
-    return await callSearchAPI("/vector", {
+    const note = tierSearchNote("vector");
+    const result = await callSearchAPI("/vector", {
       q: args.q,
       limit: args.limit || 10,
       offset: args.offset,
@@ -238,6 +253,10 @@ export const memVectorSearch: ToolDefinition = {
       tz: args.tz,
       include_shared: args.include_shared,
     });
+    if (note && result.content[0]?.type === "text") {
+      return { ...result, content: [{ ...result.content[0], text: note + result.content[0].text }] };
+    }
+    return result;
   },
 };
 
