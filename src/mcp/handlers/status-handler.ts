@@ -12,6 +12,8 @@ import {
   isRemoteEnabled,
   getRole,
   getTier,
+  getQuota,
+  fetchAndCacheTier,
   wrapSuccess,
 } from "../api-client";
 import { syncPoller } from "../mcp-server";
@@ -87,21 +89,49 @@ export const memStatus: ToolDefinition = {
       clearTimeout(timeoutId);
     }
 
-    // Auth check
+    // Refresh tier + quota from server
+    await fetchAndCacheTier();
+
+    // Auth + quota check via /api/auth/me
     const authController = new AbortController();
     const authTimeoutId = setTimeout(() => authController.abort(), 10000);
 
     try {
-      const authResponse = await fetch(`${serverUrl}/api/stats`, {
+      const authResponse = await fetch(`${serverUrl}/api/auth/me`, {
         headers: { "X-API-Key": apiKey },
         signal: authController.signal,
       });
 
       if (authResponse.ok) {
         lines.push(`**Auth:** Valid`);
+
+        // Show quota if server returns it
+        const quota = getQuota();
+        if (quota) {
+          const pct = quota.observations.limit > 0
+            ? Math.round((quota.observations.used / quota.observations.limit) * 100)
+            : 0;
+          lines.push("");
+          lines.push("### Quota");
+          lines.push(
+            `**Observations:** ${quota.observations.used.toLocaleString()} / ${quota.observations.limit.toLocaleString()} (${pct}%)`,
+          );
+          lines.push(`**Synthesis:** ${quota.synthesis.limit_per_day}/day`);
+          lines.push(
+            `**Search Modes:** ${quota.search_modes.join(", ")}`,
+          );
+          lines.push(`**Rate Limit:** ${quota.rate_limit} req/min`);
+
+          if (pct >= 90) {
+            lines.push(
+              `\n> **Warning:** ${pct}% of observation quota used. Consider upgrading your tier.`,
+            );
+          }
+        }
+
         if (getTier() === "free") {
           lines.push(
-            "  _Free tier: vector/hybrid search restricted. Use FTS mode._",
+            "\n_Free tier: vector/hybrid search restricted. Use FTS mode._",
           );
         }
       } else if (authResponse.status === 401 || authResponse.status === 403) {

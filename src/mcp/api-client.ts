@@ -118,8 +118,24 @@ export function getTier(): string | null {
   return cachedTier;
 }
 
+/** Quota info from /api/auth/me */
+export interface AccountQuota {
+  readonly observations: { readonly used: number; readonly limit: number };
+  readonly synthesis: { readonly limit_per_day: number };
+  readonly search_modes: readonly string[];
+  readonly rate_limit: number;
+}
+
+/** Cached quota (null = not yet fetched) */
+let cachedQuota: AccountQuota | null = null;
+
+/** Get cached quota from server */
+export function getQuota(): AccountQuota | null {
+  return cachedQuota;
+}
+
 /**
- * Fetch tier from /api/auth/me and cache in memory.
+ * Fetch tier + quota from /api/auth/me and cache in memory.
  * Non-blocking: logs on failure, defaults to null.
  * Uses raw fetch (not callRemoteAPI) — /api/auth/me is not in ALLOWED_API_PATHS.
  */
@@ -133,12 +149,17 @@ export async function fetchAndCacheTier(): Promise<void> {
       signal: controller.signal,
     });
     if (response.ok) {
-      const data = (await response.json()) as { tier?: string; data?: { tier?: string } };
+      const data = (await response.json()) as {
+        tier?: string;
+        data?: { tier?: string; quota?: AccountQuota };
+        quota?: AccountQuota;
+      };
       const tier = data.tier || data.data?.tier || null;
       cachedTier = tier === "default" ? null : tier;
+      cachedQuota = data.quota || data.data?.quota || null;
     }
   } catch {
-    // Non-blocking — tier stays null on failure
+    // Non-blocking — tier/quota stays null on failure
   } finally {
     clearTimeout(timeoutId);
   }

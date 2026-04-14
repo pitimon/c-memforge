@@ -116,9 +116,24 @@ Restart to load the plugin. Verify with `mem_status` tool — should show connec
 | ---------------------- | --------------------------------------------- |
 | `mem_ingest`           | Push observations to the server               |
 | `mem_workflow_suggest` | Get workflow suggestions based on context     |
-| `mem_status`           | Check config, connectivity, auth, and latency |
+| `mem_status`           | Check config, connectivity, auth, tier, and quota |
 
 All tool responses include **workflow hints** (`suggested_next`) guiding you to the right follow-up tool.
+
+---
+
+## Tiers & Quotas
+
+Your API key is associated with a tier that determines available features:
+
+| Tier         | Observations | Search Modes        | Synthesis/day | Rate Limit |
+| ------------ | ------------ | ------------------- | ------------- | ---------- |
+| **Free**     | 5,000        | FTS only            | 10            | 60/min     |
+| **Pro**      | 100,000      | FTS + Vector + Hybrid | 200         | 300/min    |
+| **Team**     | Unlimited    | All + cross-user    | Unlimited     | 600/min    |
+| **Enterprise** | Unlimited  | All + SSO + audit   | Unlimited     | Custom     |
+
+Run `mem_status` to see your current tier and quota usage. The server endpoints `/api/auth/me`, `/api/account`, and `/api/user/me` all return tier and quota details.
 
 ---
 
