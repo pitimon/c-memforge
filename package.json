@@ -1,6 +1,6 @@
 {
   "name": "memforge-client",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "MemForge client plugin for Claude Code - persistent semantic memory",
   "type": "module",
   "scripts": {
