@@ -144,11 +144,13 @@ export class RemoteSync {
       }
 
       const result = (await response.json()) as {
-        observations?: { inserted: number; updated: number };
+        inserted?: number;
+        updated?: number;
+        tables?: { observations?: { inserted: number; updated: number } };
       };
       const totalSynced =
-        (result.observations?.inserted ?? 0) +
-        (result.observations?.updated ?? 0);
+        (result.tables?.observations?.inserted ?? 0) +
+        (result.tables?.observations?.updated ?? 0);
       // Treat zero-sync on non-empty batch as failure (prevents watermark advancing past unsynced items)
       if (totalSynced === 0 && observations.length > 0) {
         for (const obs of observations) {
@@ -223,10 +225,13 @@ export class RemoteSync {
       }
 
       const result = (await response.json()) as {
-        summaries?: { inserted: number; updated: number };
+        inserted?: number;
+        updated?: number;
+        tables?: { summaries?: { inserted: number; updated: number } };
       };
       const totalSynced =
-        (result.summaries?.inserted ?? 0) + (result.summaries?.updated ?? 0);
+        (result.tables?.summaries?.inserted ?? 0) +
+        (result.tables?.summaries?.updated ?? 0);
       if (totalSynced === 0 && summaries.length > 0) {
         return { synced: 0, failed: summaries.length };
       }
