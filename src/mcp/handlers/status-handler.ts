@@ -108,21 +108,27 @@ export const memStatus: ToolDefinition = {
         // Show quota if server returns it
         const quota = getQuota();
         if (quota) {
-          const pct = quota.observations.limit > 0
-            ? Math.round((quota.observations.used / quota.observations.limit) * 100)
-            : 0;
+          const obsLimit = quota.observations.limit;
+          const obsUsed = quota.observations.used ?? 0;
+          const isUnlimited = obsLimit === null || obsLimit === undefined || obsLimit === 0;
+          const limitStr = isUnlimited ? "Unlimited" : obsLimit.toLocaleString();
+          const pct = isUnlimited ? 0 : Math.round((obsUsed / obsLimit) * 100);
+          const synthLimit = quota.synthesis.limit_per_day;
+          const synthStr = synthLimit === null || synthLimit === undefined ? "Unlimited" : `${synthLimit}`;
+          const rateStr = quota.rate_limit === 0 || quota.rate_limit === null ? "No limit" : `${quota.rate_limit} req/min`;
+
           lines.push("");
           lines.push("### Quota");
           lines.push(
-            `**Observations:** ${quota.observations.used.toLocaleString()} / ${quota.observations.limit.toLocaleString()} (${pct}%)`,
+            `**Observations:** ${obsUsed.toLocaleString()} / ${limitStr}${isUnlimited ? "" : ` (${pct}%)`}`,
           );
-          lines.push(`**Synthesis:** ${quota.synthesis.limit_per_day}/day`);
+          lines.push(`**Synthesis:** ${synthStr}/day`);
           lines.push(
             `**Search Modes:** ${quota.search_modes.join(", ")}`,
           );
-          lines.push(`**Rate Limit:** ${quota.rate_limit} req/min`);
+          lines.push(`**Rate Limit:** ${rateStr}`);
 
-          if (pct >= 90) {
+          if (!isUnlimited && pct >= 90) {
             lines.push(
               `\n> **Warning:** ${pct}% of observation quota used. Consider upgrading your tier.`,
             );
