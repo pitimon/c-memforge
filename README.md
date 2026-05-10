@@ -112,10 +112,10 @@ Restart to load the plugin. Verify with `mem_status` tool — should show connec
 
 ### Data & Workflow
 
-| Tool                   | Purpose                                       |
-| ---------------------- | --------------------------------------------- |
-| `mem_ingest`           | Push observations to the server               |
-| `mem_workflow_suggest` | Get workflow suggestions based on context     |
+| Tool                   | Purpose                                           |
+| ---------------------- | ------------------------------------------------- |
+| `mem_ingest`           | Push observations to the server                   |
+| `mem_workflow_suggest` | Get workflow suggestions based on context         |
 | `mem_status`           | Check config, connectivity, auth, tier, and quota |
 
 All tool responses include **workflow hints** (`suggested_next`) guiding you to the right follow-up tool.
@@ -126,12 +126,12 @@ All tool responses include **workflow hints** (`suggested_next`) guiding you to 
 
 Your API key is associated with a tier that determines available features:
 
-| Tier         | Observations | Search Modes        | Synthesis/day | Rate Limit |
-| ------------ | ------------ | ------------------- | ------------- | ---------- |
-| **Free**     | 5,000        | FTS only            | 10            | 60/min     |
-| **Pro**      | 100,000      | FTS + Vector + Hybrid | 200         | 300/min    |
-| **Team**     | Unlimited    | All + cross-user    | Unlimited     | 600/min    |
-| **Enterprise** | Unlimited  | All + SSO + audit   | Unlimited     | Custom     |
+| Tier           | Observations | Search Modes          | Synthesis/day | Rate Limit |
+| -------------- | ------------ | --------------------- | ------------- | ---------- |
+| **Free**       | 5,000        | FTS only              | 10            | 60/min     |
+| **Pro**        | 100,000      | FTS + Vector + Hybrid | 200           | 300/min    |
+| **Team**       | Unlimited    | All + cross-user      | Unlimited     | 600/min    |
+| **Enterprise** | Unlimited    | All + SSO + audit     | Unlimited     | Custom     |
 
 Run `mem_status` to see your current tier and quota usage. The server endpoints `/api/auth/me`, `/api/account`, and `/api/user/me` all return tier and quota details.
 
@@ -216,6 +216,33 @@ Restart Claude Code. The SyncPoller will log:
 ```
 
 Server-side deduplication prevents duplicates, so this is safe to run anytime.
+
+### Verify sync is actually working
+
+If you suspect the observation count on the MemForge UI is lower than it should be, run `mem_status` — it includes a **Pipeline Health** section that pinpoints which layer is failing. The numbers you see will reflect your own activity:
+
+```
+### Pipeline Health
+**Activity (last 24h):** N transcript file(s) modified
+**Captured (last 24h):** M obs in claude-mem.db (latest id=…)
+**Sync cursor:** obs #… (K unsynced)
+**Server (lifetime):** … obs accepted
+**Sync workers:** synced ok, 0 failed, 0 pending, circuit=closed
+
+✓ Healthy — all 4 layers aligned.
+```
+
+The 4 layers form a pipeline. A gap between adjacent layers points at a specific failure mode:
+
+| Gap   | Symptom                                                   | Likely cause                                                           | Where to look                                                          |
+| ----- | --------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **A** | transcripts > 0 but `Captured` is 0 (or `<<` transcripts) | claude-mem hooks not running — observations are never produced locally | `~/.claude/settings.json` PostToolUse hook + `~/.claude-mem/logs/`     |
+| **B** | `unsynced` is large or `circuit=open`                     | sync poller is behind or server unreachable                            | sync-poller stderr; check connectivity in the same `mem_status` output |
+| **C** | `failed > 0`                                              | server rejected uploads (quota, auth, malformed payload)               | tier quota above; API key validity; server logs                        |
+
+This is the **most common silent-failure mode**: claude-mem hook misconfiguration produces no observations at all, yet `mem_status` connectivity/auth/sync all show GREEN. The Pipeline Health section is what makes Gap A visible.
+
+If `Captured` keeps reporting 0 after Gap A is shown, re-check that `claude-mem` is installed and that `~/.claude-mem/claude-mem.db` exists and is being written to (mtime should advance during use).
 
 ### Upgrading from v1.x
 

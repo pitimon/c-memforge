@@ -4,6 +4,8 @@
  * Diagnostic tool for checking MemForge client configuration and connectivity.
  */
 
+import { homedir } from "os";
+import { join } from "path";
 import type { ToolDefinition } from "../types";
 import {
   getConfigSource,
@@ -17,6 +19,46 @@ import {
   wrapSuccess,
 } from "../api-client";
 import { syncPoller } from "../mcp-server";
+import {
+  computePipelineHealth,
+  renderPipelineHealth,
+  type SyncStatsInput,
+} from "./pipeline-health";
+
+const TRANSCRIPTS_DIR = join(homedir(), ".claude", "projects");
+const CLAUDE_MEM_DB = join(homedir(), ".claude-mem", "claude-mem.db");
+const SYNC_WATERMARK = join(homedir(), ".memforge", ".sync-watermark.json");
+const PIPELINE_WINDOW_HOURS = 24;
+
+const ZERO_SYNC_STATS: SyncStatsInput = {
+  syncedCount: 0,
+  failedCount: 0,
+  pendingCount: 0,
+  circuitState: "closed",
+};
+
+async function appendPipelineHealth(
+  lines: string[],
+  syncStats: SyncStatsInput,
+): Promise<void> {
+  try {
+    const quota = getQuota();
+    const health = await computePipelineHealth({
+      transcriptsDir: TRANSCRIPTS_DIR,
+      dbPath: CLAUDE_MEM_DB,
+      watermarkPath: SYNC_WATERMARK,
+      windowHours: PIPELINE_WINDOW_HOURS,
+      syncStats,
+      serverLifetimeUsed: quota?.observations.used ?? null,
+    });
+    lines.push(...renderPipelineHealth(health));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const safe =
+      "`" + message.replace(/`/g, "ʼ").replace(/[\r\n]+/g, " ") + "`";
+    lines.push(`\n_Pipeline health check skipped: ${safe}_`);
+  }
+}
 
 /**
  * Mask API key for display.
@@ -53,6 +95,9 @@ export const memStatus: ToolDefinition = {
       lines.push("**Status:** Not configured");
       lines.push("");
       lines.push('Run `bun run setup "your-api-key"` to configure.');
+      // Pipeline Health is local-only — still useful when remote is unconfigured
+      // so users can verify claude-mem is producing observations locally.
+      await appendPipelineHealth(lines, ZERO_SYNC_STATS);
       return wrapSuccess(lines.join("\n"));
     }
 
@@ -110,12 +155,21 @@ export const memStatus: ToolDefinition = {
         if (quota) {
           const obsLimit = quota.observations.limit;
           const obsUsed = quota.observations.used ?? 0;
-          const isUnlimited = obsLimit === null || obsLimit === undefined || obsLimit === 0;
-          const limitStr = isUnlimited ? "Unlimited" : obsLimit.toLocaleString();
+          const isUnlimited =
+            obsLimit === null || obsLimit === undefined || obsLimit === 0;
+          const limitStr = isUnlimited
+            ? "Unlimited"
+            : obsLimit.toLocaleString();
           const pct = isUnlimited ? 0 : Math.round((obsUsed / obsLimit) * 100);
           const synthLimit = quota.synthesis.limit_per_day;
-          const synthStr = synthLimit === null || synthLimit === undefined ? "Unlimited" : `${synthLimit}`;
-          const rateStr = quota.rate_limit === 0 || quota.rate_limit === null ? "No limit" : `${quota.rate_limit} req/min`;
+          const synthStr =
+            synthLimit === null || synthLimit === undefined
+              ? "Unlimited"
+              : `${synthLimit}`;
+          const rateStr =
+            quota.rate_limit === 0 || quota.rate_limit === null
+              ? "No limit"
+              : `${quota.rate_limit} req/min`;
 
           lines.push("");
           lines.push("### Quota");
@@ -123,9 +177,7 @@ export const memStatus: ToolDefinition = {
             `**Observations:** ${obsUsed.toLocaleString()} / ${limitStr}${isUnlimited ? "" : ` (${pct}%)`}`,
           );
           lines.push(`**Synthesis:** ${synthStr}/day`);
-          lines.push(
-            `**Search Modes:** ${quota.search_modes.join(", ")}`,
-          );
+          lines.push(`**Search Modes:** ${quota.search_modes.join(", ")}`);
           lines.push(`**Rate Limit:** ${rateStr}`);
 
           if (!isUnlimited && pct >= 90) {
@@ -156,8 +208,9 @@ export const memStatus: ToolDefinition = {
       clearTimeout(authTimeoutId);
     }
 
-    // Sync stats
+    // Sync stats — capture for pipeline-health input regardless of branch
     lines.push("");
+    let pipelineSyncStats: SyncStatsInput = ZERO_SYNC_STATS;
     if (syncPoller?.isActive()) {
       const stats = syncPoller.getStats();
       lines.push(
@@ -166,11 +219,21 @@ export const memStatus: ToolDefinition = {
       if (stats.circuitState !== "closed") {
         lines.push(`**Circuit:** ${stats.circuitState}`);
       }
+      pipelineSyncStats = {
+        syncedCount: stats.syncedCount,
+        failedCount: stats.failedCount,
+        pendingCount: stats.pendingCount,
+        circuitState: stats.circuitState,
+      };
     } else if (syncPoller) {
       lines.push("**Sync:** starting...");
     } else {
       lines.push("**Sync:** not running");
     }
+
+    // Pipeline Health — runs unconditionally so Gap A (claude-mem.db missing)
+    // is visible even when poller is inactive. See handlers/pipeline-health.ts.
+    await appendPipelineHealth(lines, pipelineSyncStats);
 
     return wrapSuccess(lines.join("\n"));
   },
