@@ -77,13 +77,14 @@ Restart to load the plugin. Verify with `mem_status` tool — should show connec
 
 ### Memory Curation
 
-| Tool                 | Purpose                                        |
-| -------------------- | ---------------------------------------------- |
-| `mem_pin`            | Pin observation — protect from decay/archival  |
-| `mem_set_importance` | Override importance score (0-1)                |
-| `mem_set_event_date` | Set temporal event date for time-based queries |
-| `mem_contradict`     | Mark stale + create correction observation     |
-| `mem_drift_check`    | Find oldest unverified observations            |
+| Tool                 | Purpose                                                              |
+| -------------------- | -------------------------------------------------------------------- |
+| `mem_pin`            | Pin observation — protect from decay/archival                        |
+| `mem_set_importance` | Override importance score (0-1)                                      |
+| `mem_set_event_date` | Set temporal event date for time-based queries                       |
+| `mem_set_status`     | Set lifecycle status (active/deprecated/superseded/applied/archived) |
+| `mem_contradict`     | Mark stale + create correction observation                           |
+| `mem_drift_check`    | Find oldest unverified observations                                  |
 
 ### Knowledge Graph
 
