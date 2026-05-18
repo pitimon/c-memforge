@@ -68,6 +68,7 @@ export {
   memPin,
   memSetImportance,
   memSetEventDate,
+  memSetStatus,
   memContradict,
   memDriftCheck,
 } from "./metadata-handlers";

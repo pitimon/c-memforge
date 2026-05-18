@@ -1,8 +1,8 @@
 /**
  * MCP Metadata Handlers (#42)
  *
- * 5 tools for observation metadata management:
- * pin, set_importance, set_event_date, contradict, drift_check.
+ * 6 tools for observation metadata management:
+ * pin, set_importance, set_event_date, set_status, contradict, drift_check.
  */
 
 import type { ToolDefinition } from "../types";
@@ -197,6 +197,61 @@ export const memSetEventDate: ToolDefinition = {
   },
 };
 
+/** mem_set_status tool definition */
+export const memSetStatus: ToolDefinition = {
+  name: "mem_set_status",
+  description:
+    "Set the lifecycle status of an observation. " +
+    "Use 'deprecated' when knowledge is outdated but still worth keeping for history. " +
+    "Use 'superseded' when a newer observation replaces this one. " +
+    "Use 'applied' when an action item or recommendation has been acted on. " +
+    "Use 'archived' to remove from default search without deleting. " +
+    "Default status is 'active'. Default search hides 'deprecated' and 'archived'.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      observation_id: {
+        type: "number",
+        description: "Observation ID to update (required)",
+      },
+      status: {
+        type: "string",
+        enum: ["active", "deprecated", "superseded", "applied", "archived"],
+        description:
+          "Lifecycle status: active | deprecated | superseded | applied | archived",
+      },
+    },
+    required: ["observation_id", "status"],
+  },
+  handler: async (args) => {
+    try {
+      const id = Number(args.observation_id);
+      if (!Number.isInteger(id) || id < 1) {
+        return wrapError(new Error("Invalid observation_id."));
+      }
+      const status = args.status as string;
+
+      await patchRemoteAPI(`/api/observations/${id}`, { status });
+
+      return wrapSuccess(
+        `Observation #${id} status set to '${status}'.` +
+          (status === "archived" || status === "deprecated"
+            ? " It will be hidden from default search results."
+            : ""),
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes("404"))
+        return wrapSuccess(`Observation #${args.observation_id} not found.`);
+      if (msg.includes("400") || msg.includes("Invalid status"))
+        return wrapSuccess(
+          `Invalid status '${args.status}'. Must be one of: active, deprecated, superseded, applied, archived.`,
+        );
+      return wrapError(error);
+    }
+  },
+};
+
 /** mem_contradict tool definition */
 export const memContradict: ToolDefinition = {
   name: "mem_contradict",
@@ -318,6 +373,7 @@ export const metadataHandlers: ToolDefinition[] = [
   memPin,
   memSetImportance,
   memSetEventDate,
+  memSetStatus,
   memContradict,
   memDriftCheck,
 ];
