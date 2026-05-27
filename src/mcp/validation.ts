@@ -49,6 +49,14 @@ const schemas: Record<string, z.ZodType> = {
     tz: tzField,
     offset: z.coerce.number().int().min(0).optional(),
     include_shared: z.boolean().optional(),
+    // Cross-DB read allowlist (memforge #574). Same charset as server-side
+    // Zod regex for `database` on POST /api/admin/keys.
+    database: z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)
+      .optional(),
   }),
 
   mem_vector_search: z.object({
@@ -59,6 +67,13 @@ const schemas: Record<string, z.ZodType> = {
     tz: tzField,
     offset: z.coerce.number().int().min(0).optional(),
     include_shared: z.boolean().optional(),
+    // Cross-DB read allowlist (memforge #574).
+    database: z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)
+      .optional(),
   }),
 
   mem_search: z.object({
@@ -71,6 +86,13 @@ const schemas: Record<string, z.ZodType> = {
     tz: tzField,
     offset: z.coerce.number().int().min(0).optional(),
     include_shared: z.boolean().optional(),
+    // Cross-DB read allowlist (memforge #574).
+    database: z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)
+      .optional(),
   }),
 
   mem_semantic_get: z.object({
@@ -88,6 +110,13 @@ const schemas: Record<string, z.ZodType> = {
       depth_before: z.coerce.number().int().min(0).max(50).optional(),
       depth_after: z.coerce.number().int().min(0).max(50).optional(),
       project: z.string().max(200).optional(),
+      // Cross-DB read allowlist (memforge #574).
+      database: z
+        .string()
+        .min(1)
+        .max(128)
+        .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)
+        .optional(),
     })
     .refine(
       (data) =>
