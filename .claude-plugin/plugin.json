@@ -1,5 +1,5 @@
 {
   "name": "memforge-client",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "MemForge - Persistent memory for Claude Code (SaaS client)"
 }
