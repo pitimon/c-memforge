@@ -176,6 +176,13 @@ export const memHybridSearch: ToolDefinition = {
         description:
           "Include observations shared with you by other users (default: false)",
       },
+      database: {
+        type: "string",
+        description:
+          "Optional: read from a different database listed in the API key's `readDatabases` allowlist. " +
+          "Defaults to the primary database. Writes (sync) always go to primary regardless of this. " +
+          "See memforge #574 for the cross-DB read allowlist model.",
+      },
     },
     required: ["q"],
   },
@@ -190,9 +197,18 @@ export const memHybridSearch: ToolDefinition = {
       dateEnd: args.dateEnd,
       tz: args.tz,
       include_shared: args.include_shared,
+      // Cross-DB read (memforge #574): forward as ?db= when set.
+      ...(typeof args.database === "string" && args.database
+        ? { db: args.database }
+        : {}),
     });
     if (note && result.content[0]?.type === "text") {
-      return { ...result, content: [{ ...result.content[0], text: note + result.content[0].text }] };
+      return {
+        ...result,
+        content: [
+          { ...result.content[0], text: note + result.content[0].text },
+        ],
+      };
     }
     return result;
   },
@@ -239,6 +255,13 @@ export const memVectorSearch: ToolDefinition = {
         description:
           "Include observations shared with you by other users (default: false)",
       },
+      database: {
+        type: "string",
+        description:
+          "Optional: read from a different database listed in the API key's `readDatabases` allowlist. " +
+          "Defaults to the primary database. Writes (sync) always go to primary regardless of this. " +
+          "See memforge #574 for the cross-DB read allowlist model.",
+      },
     },
     required: ["q"],
   },
@@ -252,9 +275,18 @@ export const memVectorSearch: ToolDefinition = {
       dateEnd: args.dateEnd,
       tz: args.tz,
       include_shared: args.include_shared,
+      // Cross-DB read (memforge #574): forward as ?db= when set.
+      ...(typeof args.database === "string" && args.database
+        ? { db: args.database }
+        : {}),
     });
     if (note && result.content[0]?.type === "text") {
-      return { ...result, content: [{ ...result.content[0], text: note + result.content[0].text }] };
+      return {
+        ...result,
+        content: [
+          { ...result.content[0], text: note + result.content[0].text },
+        ],
+      };
     }
     return result;
   },
@@ -310,6 +342,13 @@ export const memSearch: ToolDefinition = {
         description:
           "Include observations shared with you by other users (default: false)",
       },
+      database: {
+        type: "string",
+        description:
+          "Optional: read from a different database listed in the API key's `readDatabases` allowlist. " +
+          "Defaults to the primary database. Writes (sync) always go to primary regardless of this. " +
+          "See memforge #574 for the cross-DB read allowlist model.",
+      },
     },
     required: ["query"],
   },
@@ -324,6 +363,10 @@ export const memSearch: ToolDefinition = {
       dateEnd: args.dateEnd,
       tz: args.tz,
       include_shared: args.include_shared,
+      // Cross-DB read (memforge #574): forward as ?db= when set.
+      ...(typeof args.database === "string" && args.database
+        ? { db: args.database }
+        : {}),
     });
   },
 };
