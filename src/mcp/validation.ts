@@ -51,11 +51,17 @@ const schemas: Record<string, z.ZodType> = {
     include_shared: z.boolean().optional(),
     // Cross-DB read allowlist (memforge #574). Same charset as server-side
     // Zod regex for `database` on POST /api/admin/keys.
+    // Wave 4 (memforge v1.14.0): widened to accept "*" (entire allowlist)
+    // and "a,b,c" (explicit csv up to 8). Single name (v1.13.5 contract)
+    // still passes. Server-side parseDbParam validates each token; this
+    // client regex is a loose pre-check that matches the union.
     database: z
       .string()
       .min(1)
-      .max(128)
-      .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)
+      .max(512)
+      .regex(
+        /^(\*|[a-zA-Z0-9][a-zA-Z0-9_.-]*(\s*,\s*[a-zA-Z0-9][a-zA-Z0-9_.-]*){0,7})$/,
+      )
       .optional(),
   }),
 
@@ -68,11 +74,17 @@ const schemas: Record<string, z.ZodType> = {
     offset: z.coerce.number().int().min(0).optional(),
     include_shared: z.boolean().optional(),
     // Cross-DB read allowlist (memforge #574).
+    // Wave 4 (memforge v1.14.0): widened to accept "*" (entire allowlist)
+    // and "a,b,c" (explicit csv up to 8). Single name (v1.13.5 contract)
+    // still passes. Server-side parseDbParam validates each token; this
+    // client regex is a loose pre-check that matches the union.
     database: z
       .string()
       .min(1)
-      .max(128)
-      .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)
+      .max(512)
+      .regex(
+        /^(\*|[a-zA-Z0-9][a-zA-Z0-9_.-]*(\s*,\s*[a-zA-Z0-9][a-zA-Z0-9_.-]*){0,7})$/,
+      )
       .optional(),
   }),
 
@@ -87,11 +99,17 @@ const schemas: Record<string, z.ZodType> = {
     offset: z.coerce.number().int().min(0).optional(),
     include_shared: z.boolean().optional(),
     // Cross-DB read allowlist (memforge #574).
+    // Wave 4 (memforge v1.14.0): widened to accept "*" (entire allowlist)
+    // and "a,b,c" (explicit csv up to 8). Single name (v1.13.5 contract)
+    // still passes. Server-side parseDbParam validates each token; this
+    // client regex is a loose pre-check that matches the union.
     database: z
       .string()
       .min(1)
-      .max(128)
-      .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)
+      .max(512)
+      .regex(
+        /^(\*|[a-zA-Z0-9][a-zA-Z0-9_.-]*(\s*,\s*[a-zA-Z0-9][a-zA-Z0-9_.-]*){0,7})$/,
+      )
       .optional(),
   }),
 
