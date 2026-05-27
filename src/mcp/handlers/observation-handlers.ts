@@ -111,8 +111,9 @@ export const memTimeline: ToolDefinition = {
       database: {
         type: "string",
         description:
-          "Optional: read from a different database listed in the API key's `readDatabases` allowlist. " +
-          "Defaults to the primary database. See memforge #574 for the cross-DB read allowlist model.",
+          "Optional: read from a different single database in the API key's `readDatabases` allowlist. " +
+          "Timeline anchors are per-schema row IDs, so multi-DB syntax (`*` or `a,b`) is rejected here with HTTP 400 `SINGLE_DB_ONLY` — pass a single name. " +
+          "Defaults to primary. See memforge #574.",
       },
     },
   },

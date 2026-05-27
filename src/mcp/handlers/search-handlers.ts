@@ -179,9 +179,10 @@ export const memHybridSearch: ToolDefinition = {
       database: {
         type: "string",
         description:
-          "Optional: read from a different database listed in the API key's `readDatabases` allowlist. " +
-          "Defaults to the primary database. Writes (sync) always go to primary regardless of this. " +
-          "See memforge #574 for the cross-DB read allowlist model.",
+          "Optional: read from secondary database(s) listed in the API key's `readDatabases` allowlist. " +
+          "Accepts a single name (`systeminfra.db`), comma-separated list (`a,b,c` up to 8), or `*` for the entire allowlist. " +
+          "Multi-DB requests (csv or `*`) fan out server-side and merge results by RRF; each merged item carries a `database` field naming its source. " +
+          "Defaults to primary; writes always go to primary regardless. See memforge #574.",
       },
     },
     required: ["q"],
@@ -258,9 +259,10 @@ export const memVectorSearch: ToolDefinition = {
       database: {
         type: "string",
         description:
-          "Optional: read from a different database listed in the API key's `readDatabases` allowlist. " +
-          "Defaults to the primary database. Writes (sync) always go to primary regardless of this. " +
-          "See memforge #574 for the cross-DB read allowlist model.",
+          "Optional: read from secondary database(s) listed in the API key's `readDatabases` allowlist. " +
+          "Accepts a single name (`systeminfra.db`), comma-separated list (`a,b,c` up to 8), or `*` for the entire allowlist. " +
+          "Multi-DB requests (csv or `*`) fan out server-side and merge results by RRF; each merged item carries a `database` field naming its source. " +
+          "Defaults to primary; writes always go to primary regardless. See memforge #574.",
       },
     },
     required: ["q"],
@@ -345,9 +347,10 @@ export const memSearch: ToolDefinition = {
       database: {
         type: "string",
         description:
-          "Optional: read from a different database listed in the API key's `readDatabases` allowlist. " +
-          "Defaults to the primary database. Writes (sync) always go to primary regardless of this. " +
-          "See memforge #574 for the cross-DB read allowlist model.",
+          "Optional: read from secondary database(s) listed in the API key's `readDatabases` allowlist. " +
+          "Accepts a single name (`systeminfra.db`), comma-separated list (`a,b,c` up to 8), or `*` for the entire allowlist. " +
+          "Multi-DB requests (csv or `*`) fan out server-side and merge results by RRF; each merged item carries a `database` field naming its source. " +
+          "Defaults to primary; writes always go to primary regardless. See memforge #574.",
       },
     },
     required: ["query"],
