@@ -108,17 +108,27 @@ export const memTimeline: ToolDefinition = {
         type: "string",
         description: "Filter by project name",
       },
+      database: {
+        type: "string",
+        description:
+          "Optional: read from a different database listed in the API key's `readDatabases` allowlist. " +
+          "Defaults to the primary database. See memforge #574 for the cross-DB read allowlist model.",
+      },
     },
   },
   handler: async (args) => {
     try {
-      const params = {
+      const params: Record<string, unknown> = {
         anchor: args.anchor,
         query: args.query,
         depth_before: args.depth_before || 5,
         depth_after: args.depth_after || 5,
         project: args.project,
       };
+      // Cross-DB read (memforge #574): forward as ?db= when set.
+      if (typeof args.database === "string" && args.database) {
+        params.db = args.database;
+      }
 
       const data = (await callRemoteAPI(
         "/api/timeline",
