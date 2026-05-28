@@ -19,6 +19,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { Database } from "bun:sqlite";
 import { remoteSync } from "./remote-sync";
+import { pushUsage } from "../usage/usage-sync";
 
 const DB_PATH = join(homedir(), ".claude-mem/claude-mem.db");
 const WATERMARK_PATH = join(homedir(), ".memforge", ".sync-watermark.json");
@@ -74,6 +75,13 @@ const SYNC_BATCH_SIZE = 100; // max rows per sync batch (prevents OOM + timeout)
 // Circuit breaker constants
 const CIRCUIT_THRESHOLD = 3; // open after 3 consecutive sync failures
 const CIRCUIT_COOLDOWN = 30000; // 30s cooldown before retry probe
+
+// Usage push (Phase 3, memforge ADR-003): parse local JSONL + POST measured
+// per-(date, model) token usage. Throttled — far slower cadence than obs sync
+// since day-level totals don't change second-to-second. Idempotent upsert, so
+// missing a tick is harmless (next push replaces).
+const USAGE_PUSH_INTERVAL = 10 * 60 * 1000; // 10 minutes
+const USAGE_SCAN_SINCE_DAYS = 7; // bound the JSONL scan to a recent window
 
 interface ObservationRow {
   id: number;
@@ -148,6 +156,9 @@ export class SyncPoller {
   // Circuit breaker state
   private consecutiveFailures = 0;
   private circuitOpenUntil = 0;
+
+  // Usage push state (Phase 3) — last successful/attempted push epoch (ms)
+  private lastUsagePush = 0;
 
   constructor(options?: SyncPollerOptions) {
     this.basePollInterval = options?.pollInterval || DEFAULT_POLL_INTERVAL;
@@ -355,6 +366,11 @@ export class SyncPoller {
         this.log("[SyncPoller] Remote connection restored");
       }
       this.consecutiveFailures = 0;
+
+      // Phase 3 (ADR-003): throttled usage push. Idempotent upsert — errors
+      // are logged inside pushUsage and never propagate, so a failure here
+      // cannot trip the obs-sync circuit breaker or crash the poll loop.
+      await this.maybePushUsage();
     } catch (error) {
       this.log("[SyncPoller] Poll error:", error);
       hadSyncError = true;
@@ -377,6 +393,23 @@ export class SyncPoller {
     } else {
       this.consecutiveEmpty++;
       this.scheduleNextPoll(this.getAdaptiveInterval());
+    }
+  }
+
+  /**
+   * Phase 3 (ADR-003): push measured token usage if the throttle window has
+   * elapsed. Reads local Claude Code JSONL (no ccusage needed) and POSTs the
+   * per-(date, model) aggregate. Self-contained error handling — never throws.
+   */
+  private async maybePushUsage(): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastUsagePush < USAGE_PUSH_INTERVAL) return;
+    this.lastUsagePush = now; // stamp before await so a slow push can't double-fire
+    try {
+      await pushUsage(USAGE_SCAN_SINCE_DAYS, this.log);
+    } catch (e) {
+      // Defensive — pushUsage already swallows, but never let usage break sync.
+      this.log("[SyncPoller] usage push unexpected error:", e);
     }
   }
 
