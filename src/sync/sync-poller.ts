@@ -81,7 +81,16 @@ const CIRCUIT_COOLDOWN = 30000; // 30s cooldown before retry probe
 // since day-level totals don't change second-to-second. Idempotent upsert, so
 // missing a tick is harmless (next push replaces).
 const USAGE_PUSH_INTERVAL = 10 * 60 * 1000; // 10 minutes
-const USAGE_SCAN_SINCE_DAYS = 7; // bound the JSONL scan to a recent window
+// Usage scan window (days). The parser reads every JSONL file regardless and
+// filters lines by date *after* parsing, so widening this does NOT increase
+// file I/O — it only grows the POST row-count (days × models ≪ the server's
+// 1000-item / 90-day caps). 30 matches the UI "30d" tier and Claude Code's
+// default transcript retention; 7 left 30d/all showing the same total as 7d
+// (memforge ADR-003 follow-up). Override via MEMFORGE_USAGE_SCAN_DAYS.
+const USAGE_SCAN_SINCE_DAYS = ((): number => {
+  const n = Number(process.env.MEMFORGE_USAGE_SCAN_DAYS);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 30;
+})();
 
 interface ObservationRow {
   id: number;
