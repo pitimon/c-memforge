@@ -14,6 +14,26 @@
 
 ## Installation
 
+### Codex
+
+Codex uses the native package in `.codex-plugin/` and the repo marketplace in `.agents/plugins/marketplace.json`:
+
+```bash
+codex plugin marketplace add https://github.com/pitimon/c-memforge.git
+codex plugin add memforge-client@pitimon-c-memforge
+```
+
+To pin a release:
+
+```bash
+codex plugin marketplace add pitimon/c-memforge --ref v2.10.0
+codex plugin add memforge-client@pitimon-c-memforge
+```
+
+Configure credentials in `~/.memforge/config.json` as shown below, then start a new Codex thread so the MCP server is loaded. The Codex package exposes the MemForge MCP tools; Claude Code hook behavior remains Claude Code-specific.
+
+### Claude Code
+
 ### Prerequisites
 
 1. **Bun runtime**: `curl -fsSL https://bun.sh/install | bash`

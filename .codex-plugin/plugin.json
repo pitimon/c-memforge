@@ -1,0 +1,40 @@
+{
+  "name": "memforge-client",
+  "version": "2.10.0",
+  "description": "MemForge client plugin for Codex and Claude Code - persistent semantic memory.",
+  "author": {
+    "name": "pitimon",
+    "email": "pitimon@users.noreply.github.com",
+    "url": "https://github.com/pitimon"
+  },
+  "homepage": "https://github.com/pitimon/c-memforge#readme",
+  "repository": "https://github.com/pitimon/c-memforge",
+  "license": "AGPL-3.0",
+  "keywords": [
+    "memory",
+    "mcp",
+    "semantic-search",
+    "hybrid-search",
+    "knowledge-graph",
+    "codex",
+    "claude-code"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "MemForge Client",
+    "shortDescription": "Persistent memory search and sync tools for AI agents.",
+    "longDescription": "MemForge Client exposes MCP tools for semantic, hybrid, vector, temporal, cross-project, team, curation, workflow, and status operations against a MemForge server. The Codex package reuses the existing MCP server and reads credentials from ~/.memforge/config.json or environment variables; Claude Code-specific packaging remains available separately.",
+    "developerName": "pitimon",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ],
+    "websiteURL": "https://github.com/pitimon/c-memforge",
+    "defaultPrompt": [
+      "Search my MemForge memory for this project.",
+      "Check MemForge status and available quota.",
+      "Find related cross-project observations."
+    ],
+    "brandColor": "#0F766E"
+  }
+}

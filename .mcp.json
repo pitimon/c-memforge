@@ -2,7 +2,11 @@
   "mcpServers": {
     "memforge": {
       "type": "stdio",
-      "command": "${CLAUDE_PLUGIN_ROOT}/src/mcp/mcp-server.ts",
+      "command": "sh",
+      "args": [
+        "-c",
+        "_E=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; _P=$({ [ -n \"$_E\" ] && printf '%s\\n' \"$_E\"; printf '%s\\n' \"$PWD/plugin\" \"$PWD\"; ls -dt \"$HOME/.codex/plugins/cache/pitimon-c-memforge/memforge-client\"/[0-9]*/ \"$HOME/.claude/plugins/cache/pitimon-c-memforge/memforge-client\"/[0-9]*/ 2>/dev/null; printf '%s\\n' \"$HOME/.claude/plugins/marketplaces/pitimon-c-memforge/plugin\"; } | while IFS= read -r _R; do [ -d \"$_R/plugin/src/mcp\" ] && _Q=\"$_R/plugin\" || _Q=\"$_R\"; [ -f \"$_Q/src/mcp/mcp-server.ts\" ] && { printf '%s\\n' \"$_Q\"; break; }; done); [ -n \"$_P\" ] || { echo \"memforge-client: mcp server not found\" >&2; exit 1; }; cd \"$_P\" && exec bun src/mcp/mcp-server.ts"
+      ],
       "env": {
         "CLAUDE_MEM_REMOTE_URL": "https://memclaude.thaicloud.ai"
       }
