@@ -1,6 +1,6 @@
 {
   "name": "memforge-client",
-  "version": "2.10.0",
+  "version": "2.10.1",
   "description": "MemForge client plugin for Codex and Claude Code - persistent semantic memory.",
   "author": {
     "name": "pitimon",
@@ -26,9 +26,7 @@
     "longDescription": "MemForge Client exposes MCP tools for semantic, hybrid, vector, temporal, cross-project, team, curation, workflow, and status operations against a MemForge server. The Codex package reuses the existing MCP server and reads credentials from ~/.memforge/config.json or environment variables; Claude Code-specific packaging remains available separately.",
     "developerName": "pitimon",
     "category": "Productivity",
-    "capabilities": [
-      "Interactive"
-    ],
+    "capabilities": ["Interactive"],
     "websiteURL": "https://github.com/pitimon/c-memforge",
     "defaultPrompt": [
       "Search my MemForge memory for this project.",

@@ -1,11 +1,11 @@
 {
   "name": "memforge-client",
-  "version": "2.10.0",
+  "version": "2.10.1",
   "description": "MemForge client plugin for Claude Code - persistent semantic memory",
   "type": "module",
   "scripts": {
     "setup": "bun scripts/setup.ts",
-    "postinstall": "mkdir -p ~/.memforge && (which bun > /dev/null 2>&1 && bun install --no-save 2>/dev/null || true)",
+    "postinstall": "node -e \"require('fs').mkdirSync(require('path').join(require('os').homedir(),'.memforge'),{recursive:true})\"",
     "check": "bun scripts/check-dependency.ts",
     "mcp": "bun src/mcp/mcp-server.ts"
   },
