@@ -26,7 +26,7 @@ codex plugin add memforge-client@pitimon-c-memforge
 To pin a release:
 
 ```bash
-codex plugin marketplace add pitimon/c-memforge --ref v2.10.1
+codex plugin marketplace add pitimon/c-memforge --ref v2.10.2
 codex plugin add memforge-client@pitimon-c-memforge
 ```
 
