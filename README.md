@@ -26,7 +26,7 @@ codex plugin add memforge-client@pitimon-c-memforge
 To pin a release:
 
 ```bash
-codex plugin marketplace add pitimon/c-memforge --ref v2.10.0
+codex plugin marketplace add pitimon/c-memforge --ref v2.10.1
 codex plugin add memforge-client@pitimon-c-memforge
 ```
 
@@ -36,7 +36,15 @@ Configure credentials in `~/.memforge/config.json` as shown below, then start a 
 
 ### Prerequisites
 
-1. **Bun runtime**: `curl -fsSL https://bun.sh/install | bash`
+1. **Bun runtime** (the MCP server runs on bun — `node` cannot substitute):
+   - macOS / Linux: `curl -fsSL https://bun.sh/install | bash`
+   - Windows (PowerShell): `powershell -c "irm bun.sh/install.ps1 | iex"`
+
+   Ensure both `bun` and `node` are on your `PATH` — verify with `bun --version`
+   and `node --version`. (Windows note: the MCP launcher no longer needs a Unix
+   shell as of **v2.10.1**; earlier versions launched via `sh`, which Windows
+   lacks, so the MCP server failed to start.)
+
 2. **claude-mem plugin**: `/plugin marketplace add thedotmack/claude-mem`
 
 ### Step 1: Add Marketplace + Install Plugin
@@ -196,26 +204,33 @@ Sync runs in-process with the MCP server. No separate daemon or background proce
 
 ## Troubleshooting
 
-| Problem                        | Solution                                                                                            |
-| ------------------------------ | --------------------------------------------------------------------------------------------------- |
-| "Remote search not configured" | Check `~/.memforge/config.json` has valid `apiKey`                                                  |
-| "Required: claude-mem plugin"  | Install: `/plugin marketplace add thedotmack/claude-mem`                                            |
-| "bun: command not found"       | Install: `curl -fsSL https://bun.sh/install \| bash`                                                |
-| SSH error on plugin install    | Use HTTPS: `claude plugin marketplace add pitimon/c-memforge`                                       |
-| Sync not working               | Run `mem_status` tool. Check `syncEnabled: true` in config                                          |
-| Slow search                    | Use `mem_search` (FTS) instead of vector. Add date filters. Lower `limit`                           |
-| MCP server won't start         | Missing dependencies — see [First-run dependency install](#first-run-dependency-install) below      |
-| Old observations not syncing   | Remove watermark file — see [Backfill existing observations](#backfill-existing-observations) below |
-| Claude Code hangs on startup   | claude-mem `smart-install.js` runs `bun install` — wait 30-60s or check network                     |
-| Old db-watcher zombie process  | See [Upgrading from v1.x](#upgrading-from-v1x) below                                                |
+| Problem                         | Solution                                                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Remote search not configured"  | Check `~/.memforge/config.json` has valid `apiKey`                                                                                                            |
+| "Required: claude-mem plugin"   | Install: `/plugin marketplace add thedotmack/claude-mem`                                                                                                      |
+| "bun: command not found"        | Install: `curl -fsSL https://bun.sh/install \| bash`                                                                                                          |
+| SSH error on plugin install     | Use HTTPS: `claude plugin marketplace add pitimon/c-memforge`                                                                                                 |
+| Sync not working                | Run `mem_status` tool. Check `syncEnabled: true` in config                                                                                                    |
+| Slow search                     | Use `mem_search` (FTS) instead of vector. Add date filters. Lower `limit`                                                                                     |
+| MCP server won't start          | Missing dependencies — see [First-run dependency install](#first-run-dependency-install) below                                                                |
+| MCP fails on Windows (≤ 2.10.0) | The launcher used `sh` (absent on Windows). Update to **v2.10.1+** (`claude plugin install memforge-client@pitimon-c-memforge`) and ensure `bun` is on `PATH` |
+| Old observations not syncing    | Remove watermark file — see [Backfill existing observations](#backfill-existing-observations) below                                                           |
+| Claude Code hangs on startup    | claude-mem `smart-install.js` runs `bun install` — wait 30-60s or check network                                                                               |
+| Old db-watcher zombie process   | See [Upgrading from v1.x](#upgrading-from-v1x) below                                                                                                          |
 
 ### First-run dependency install
 
 After `claude plugin install`, the MCP server may fail to connect because dependencies aren't installed in the cache directory. Fix:
 
 ```bash
-# Find the cache directory and install dependencies
+# macOS / Linux — find the cache directory and install dependencies
 cd ~/.claude/plugins/cache/pitimon-c-memforge/memforge-client/*/
+bun install
+```
+
+```powershell
+# Windows (PowerShell) — newest installed version
+cd (Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache\pitimon-c-memforge\memforge-client" | Sort-Object Name -Descending | Select-Object -First 1).FullName
 bun install
 ```
 

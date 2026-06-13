@@ -2,10 +2,10 @@
   "mcpServers": {
     "memforge": {
       "type": "stdio",
-      "command": "sh",
+      "command": "bun",
       "args": [
-        "-c",
-        "_E=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; _P=$({ [ -n \"$_E\" ] && printf '%s\\n' \"$_E\"; printf '%s\\n' \"$PWD/plugin\" \"$PWD\"; ls -dt \"$HOME/.codex/plugins/cache/pitimon-c-memforge/memforge-client\"/[0-9]*/ \"$HOME/.claude/plugins/cache/pitimon-c-memforge/memforge-client\"/[0-9]*/ 2>/dev/null; printf '%s\\n' \"$HOME/.claude/plugins/marketplaces/pitimon-c-memforge/plugin\"; } | while IFS= read -r _R; do [ -d \"$_R/plugin/src/mcp\" ] && _Q=\"$_R/plugin\" || _Q=\"$_R\"; [ -f \"$_Q/src/mcp/mcp-server.ts\" ] && { printf '%s\\n' \"$_Q\"; break; }; done); [ -n \"$_P\" ] || { echo \"memforge-client: mcp server not found\" >&2; exit 1; }; cd \"$_P\" && exec bun src/mcp/mcp-server.ts"
+        "-e",
+        "const fs=require('fs'),p=require('path'),os=require('os'),u=require('url'); const c=[process.env.CLAUDE_PLUGIN_ROOT,process.env.PLUGIN_ROOT,p.join(process.cwd(),'plugin'),process.cwd(),p.join(os.homedir(),'.claude','plugins','marketplaces','pitimon-c-memforge','plugin')]; for(const base of [p.join(os.homedir(),'.codex','plugins','cache','pitimon-c-memforge','memforge-client'),p.join(os.homedir(),'.claude','plugins','cache','pitimon-c-memforge','memforge-client')]){try{for(const d of fs.readdirSync(base).filter(n=>/^[0-9]/.test(n)).sort().reverse())c.push(p.join(base,d));}catch(e){}} const root=c.filter(Boolean).flatMap(d=>[d,p.join(d,'plugin')]).find(d=>fs.existsSync(p.join(d,'src','mcp','mcp-server.ts'))); if(!root){process.stderr.write('memforge-client: mcp-server.ts not found; set CLAUDE_PLUGIN_ROOT or PLUGIN_ROOT\\n');process.exit(1);} process.chdir(root); import(u.pathToFileURL(p.join(root,'src','mcp','mcp-server.ts')).href).catch(e=>{process.stderr.write('memforge-client: failed to start: '+((e&&e.message)||e)+' (if a module is missing, run: bun install in '+root+')\\n');process.exit(1);});"
       ],
       "env": {
         "CLAUDE_MEM_REMOTE_URL": "https://memclaude.thaicloud.ai"

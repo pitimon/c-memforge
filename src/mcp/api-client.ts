@@ -98,7 +98,7 @@ export function initializeApiKey(): void {
   // Fallback to claude-mem settings
   if (!remoteApiKey) {
     try {
-      const settingsPath = `${process.env.HOME}/.claude-mem/settings.json`;
+      const settingsPath = join(homedir(), ".claude-mem", "settings.json");
       const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
       remoteApiKey = settings.CLAUDE_MEM_API_KEY || "";
       configSource = settingsPath;
