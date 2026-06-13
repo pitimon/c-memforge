@@ -5,6 +5,19 @@ All notable changes to the MemForge client plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.2] - 2026-06-13
+
+### Documentation
+
+- **Corrected MCP tool count to 28** (was "27" in README and "16" in the plugin
+  `CLAUDE.md`). Verified against `getAllTools()` — the 4 `mem_snapshot_*` tools
+  are defined but server-side only, not exposed by this client.
+- Added the missing tool groups to `.claude-plugin/CLAUDE.md` (temporal query,
+  6 memory-curation tools, 5 SkillNet tools).
+- Added a **"Try It — Example Prompts"** section to the README — copy-paste
+  natural-language prompts grouped by feature (verify setup, search, cross-project,
+  knowledge graph, skills, curation), each annotated with the tool it invokes.
+
 ## [2.10.1] - 2026-06-13
 
 ### Fixed
