@@ -4,13 +4,14 @@ Persistent semantic memory for Claude Code, powered by the MemForge SaaS platfor
 
 ## MCP Tools Available
 
-This plugin provides 16 MCP tools for diagnostics, semantic search, and memory management:
+This plugin provides 28 MCP tools for diagnostics, search, retrieval, curation, knowledge graph, skills, and cross-project memory:
 
 ### Diagnostic Tools
 - `mem_status` - Check config, connectivity, auth, and latency
 
 ### Search Tools
-- `mem_semantic_search` - Hybrid search (vector + FTS) with mode selection
+- `mem_semantic_search` - Primary search; hybrid (vector + FTS) with mode selection
+- `mem_temporal_query` - Time-based search ("yesterday", "last week", date ranges)
 - `mem_hybrid_search` - Hybrid search with RRF ranking
 - `mem_vector_search` - Pure vector/embedding search
 - `mem_search` - Full-text search
@@ -31,6 +32,21 @@ All search tools support `offset` parameter for pagination.
 - `mem_cross_project` - Find observations from other projects via concept overlap
 - `mem_team_knowledge` - Search team knowledge pool (shared by team members)
 - `mem_stable_context` - Get stable observation log for prompt caching
+
+### Memory Curation Tools
+- `mem_pin` - Pin an observation to protect it from decay/archival
+- `mem_set_importance` - Override an observation's importance score (0-1)
+- `mem_set_event_date` - Set the temporal event date for time-based queries
+- `mem_set_status` - Set lifecycle status (active/deprecated/superseded/applied/archived)
+- `mem_contradict` - Mark an observation stale and record a correction
+- `mem_drift_check` - Find the oldest unverified observations
+
+### Skill Tools (SkillNet)
+- `mem_skill_search` - Search skills by query, category, or tags
+- `mem_skill_get` - Get a specific skill with full details
+- `mem_skill_related` - Find related skills via graph traversal
+- `mem_skill_create` - Extract a reusable skill from observations
+- `mem_skill_discover` - Browse the public skill catalog
 
 ### Data Tools
 - `mem_ingest` - Ingest observations into the server

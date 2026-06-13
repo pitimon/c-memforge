@@ -82,7 +82,72 @@ Restart to load the plugin. Verify with `mem_status` tool — should show connec
 
 ---
 
-## MCP Tools (27)
+## Try It — Example Prompts
+
+You don't call tools directly — just talk to Claude in natural language, and it
+picks the right MemForge tool for you. Copy any prompt below into Claude Code.
+The **Tool** column shows what runs under the hood (handy for verifying which
+feature you're exercising).
+
+### 1. Verify your setup (run these first)
+
+| Prompt                                                    | Tool                  | Expect                                            |
+| --------------------------------------------------------- | --------------------- | ------------------------------------------------- |
+| `Check my MemForge status, tier, and quota.`              | `mem_status`          | Connectivity OK + your tier and observation count |
+| `Search my MemForge memory for anything about this repo.` | `mem_semantic_search` | A list of past observations (empty if brand new)  |
+
+If `mem_status` returns connectivity OK, the plugin is working. New accounts
+start empty — your observations appear automatically after a few sessions (sync
+is background, no manual steps).
+
+### 2. Search & recall
+
+| Prompt                                                   | Tool                           |
+| -------------------------------------------------------- | ------------------------------ |
+| `How did I fix the last deployment bug?`                 | `mem_semantic_search` (hybrid) |
+| `What did I work on yesterday?` · `…last week?`          | `mem_temporal_query`           |
+| `Find observations similar to "rate limiting strategy".` | `mem_vector_search`            |
+| `Search my memory for the keyword "postgres".`           | `mem_search` (full-text)       |
+| `Show my 10 most recent observations.`                   | `mem_semantic_recent`          |
+| `Show the context around observation 102945.`            | `mem_timeline`                 |
+
+### 3. Cross-project & team
+
+| Prompt                                                           | Tool                             |
+| ---------------------------------------------------------------- | -------------------------------- |
+| `Find related work from my other projects about authentication.` | `mem_cross_project`              |
+| `Search the team knowledge pool for our incident runbook.`       | `mem_team_knowledge` (Team tier) |
+
+### 4. Knowledge graph
+
+| Prompt                                                    | Tool                 |
+| --------------------------------------------------------- | -------------------- |
+| `What is connected to the entity "Redis" in my memory?`   | `mem_entity_lookup`  |
+| `Show relationships where the predicate is "depends on".` | `mem_triplets_query` |
+
+### 5. Skills (SkillNet)
+
+| Prompt                                                | Tool                 |
+| ----------------------------------------------------- | -------------------- |
+| `Search my skills for a database migration workflow.` | `mem_skill_search`   |
+| `Browse the public skill catalog.`                    | `mem_skill_discover` |
+| `Turn my recent work into a reusable skill.`          | `mem_skill_create`   |
+
+### 6. Curate memory
+
+| Prompt                                                | Tool              |
+| ----------------------------------------------------- | ----------------- |
+| `Pin observation 102945 so it never gets archived.`   | `mem_pin`         |
+| `Mark observation 100200 as deprecated.`              | `mem_set_status`  |
+| `Observation 99000 is wrong — record the correction.` | `mem_contradict`  |
+| `Which of my observations are oldest and unverified?` | `mem_drift_check` |
+
+> Every tool response includes a `suggested_next` hint pointing you to the
+> natural follow-up tool — so you can keep going without memorizing the catalog.
+
+---
+
+## MCP Tools (28)
 
 ### Search (start here)
 
@@ -190,7 +255,7 @@ claude-mem (local)          memforge-client (this plugin)          MemForge Serv
 LLM creates structured  →  SyncPoller reads SQLite     →  POST /api/sync/push
 observations in SQLite      every 2-10s (adaptive)         stores + embeds + extracts entities
 
-                            27 MCP tools  ←─────────────  Search, curation, graph, skills
+                            28 MCP tools  ←─────────────  Search, curation, graph, skills
                             + workflow hints                + 15 background workers
 ```
 
