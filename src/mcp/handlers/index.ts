@@ -19,6 +19,7 @@ import { contextHandlers } from "./context-handlers";
 import { teamHandlers } from "./team-handlers";
 import { skillHandlers } from "./skill-handlers";
 import { metadataHandlers } from "./metadata-handlers";
+import { sessionHandlers } from "./session-handlers";
 
 export {
   searchHandlers,
@@ -31,6 +32,7 @@ export {
   teamHandlers,
   skillHandlers,
   metadataHandlers,
+  sessionHandlers,
 };
 
 // Re-export individual handlers for direct imports
@@ -72,6 +74,7 @@ export {
   memContradict,
   memDriftCheck,
 } from "./metadata-handlers";
+export { memHandoff, memResume } from "./session-handlers";
 
 /**
  * Get all tool definitions for MCP server registration.
@@ -90,5 +93,6 @@ export function getAllTools(): ToolDefinition[] {
     ...teamHandlers,
     ...skillHandlers,
     ...metadataHandlers,
+    ...sessionHandlers,
   ];
 }

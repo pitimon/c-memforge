@@ -26,7 +26,7 @@ codex plugin add memforge-client@pitimon-c-memforge
 To pin a release:
 
 ```bash
-codex plugin marketplace add pitimon/c-memforge --ref v2.10.2
+codex plugin marketplace add pitimon/c-memforge --ref v2.11.0
 codex plugin add memforge-client@pitimon-c-memforge
 ```
 
@@ -147,7 +147,7 @@ is background, no manual steps).
 
 ---
 
-## MCP Tools (28)
+## MCP Tools (30)
 
 ### Search (start here)
 
@@ -212,7 +212,22 @@ is background, no manual steps).
 | `mem_workflow_suggest` | Get workflow suggestions based on context         |
 | `mem_status`           | Check config, connectivity, auth, tier, and quota |
 
+### Session Continuity
+
+| Tool          | Purpose                                                                          |
+| ------------- | --------------------------------------------------------------------------------- |
+| `mem_handoff` | Write a session handoff (what's done, what's next, open loops)                   |
+| `mem_resume`  | Resume work: latest handoff + open loops + prior handoffs + latest retrospective  |
+
 All tool responses include **workflow hints** (`suggested_next`) guiding you to the right follow-up tool.
+
+## Commands
+
+| Command          | Purpose                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `/forward`       | Write a structured session handoff before ending/clearing (calls `mem_handoff`)    |
+| `/resume`        | Resume work: fetch latest handoff, open loops, recent context (calls `mem_resume`) |
+| `/retrospective` | Write a first-person session retrospective — AI Diary + Honest Feedback (calls `mem_ingest`) |
 
 ---
 
@@ -255,7 +270,7 @@ claude-mem (local)          memforge-client (this plugin)          MemForge Serv
 LLM creates structured  →  SyncPoller reads SQLite     →  POST /api/sync/push
 observations in SQLite      every 2-10s (adaptive)         stores + embeds + extracts entities
 
-                            28 MCP tools  ←─────────────  Search, curation, graph, skills
+                            30 MCP tools  ←─────────────  Search, curation, graph, skills
                             + workflow hints                + 15 background workers
 ```
 

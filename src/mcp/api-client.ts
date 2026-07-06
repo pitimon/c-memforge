@@ -281,6 +281,8 @@ const ALLOWED_API_PATHS = new Set([
   "/api/skills",
   "/api/search/temporal",
   "/api/observations/drift-check",
+  "/api/v1/handoff",
+  "/api/v1/resume",
   "/health",
 ]);
 

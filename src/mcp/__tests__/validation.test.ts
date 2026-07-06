@@ -240,6 +240,108 @@ describe("validateToolInput", () => {
     });
   });
 
+  describe("mem_handoff", () => {
+    test("accepts valid input", () => {
+      const result = validateToolInput("mem_handoff", {
+        project: "memforge",
+        next_steps: ["Finish task C1", "Run tests"],
+      });
+      expect(result.project).toBe("memforge");
+      expect(result.next_steps).toEqual(["Finish task C1", "Run tests"]);
+    });
+
+    test("accepts optional fields", () => {
+      const result = validateToolInput("mem_handoff", {
+        project: "memforge",
+        next_steps: ["Ship it"],
+        context: "Implemented session handoff tools",
+        open_loops: ["Server contract not yet deployed"],
+        agent_id: "agent-1",
+        agent_type: "fast-worker",
+      });
+      expect(result.context).toBe("Implemented session handoff tools");
+      expect(result.open_loops).toEqual(["Server contract not yet deployed"]);
+    });
+
+    test("rejects missing project", () => {
+      expect(() =>
+        validateToolInput("mem_handoff", { next_steps: ["a"] }),
+      ).toThrow("Invalid input");
+    });
+
+    test("rejects empty project", () => {
+      expect(() =>
+        validateToolInput("mem_handoff", { project: "", next_steps: ["a"] }),
+      ).toThrow("Invalid input");
+    });
+
+    test("rejects missing next_steps", () => {
+      expect(() =>
+        validateToolInput("mem_handoff", { project: "memforge" }),
+      ).toThrow("Invalid input");
+    });
+
+    test("rejects empty next_steps array", () => {
+      expect(() =>
+        validateToolInput("mem_handoff", {
+          project: "memforge",
+          next_steps: [],
+        }),
+      ).toThrow("Invalid input");
+    });
+
+    test("rejects non-string entries in next_steps", () => {
+      expect(() =>
+        validateToolInput("mem_handoff", {
+          project: "memforge",
+          next_steps: [123],
+        }),
+      ).toThrow("Invalid input");
+    });
+  });
+
+  describe("mem_resume", () => {
+    test("accepts valid input with default limit", () => {
+      const result = validateToolInput("mem_resume", { project: "memforge" });
+      expect(result.project).toBe("memforge");
+      expect(result.limit).toBe(3);
+    });
+
+    test("accepts explicit limit", () => {
+      const result = validateToolInput("mem_resume", {
+        project: "memforge",
+        limit: 5,
+      });
+      expect(result.limit).toBe(5);
+    });
+
+    test("coerces string limit to number", () => {
+      const result = validateToolInput("mem_resume", {
+        project: "memforge",
+        limit: "10",
+      });
+      expect(result.limit).toBe(10);
+    });
+
+    test("rejects missing project", () => {
+      expect(() => validateToolInput("mem_resume", {})).toThrow(
+        "Invalid input",
+      );
+    });
+
+    test("rejects empty project", () => {
+      expect(() =>
+        validateToolInput("mem_resume", { project: "" }),
+      ).toThrow("Invalid input");
+    });
+
+    test("rejects limit > 50", () => {
+      expect(() =>
+        validateToolInput("mem_resume", { project: "memforge", limit: 100 }),
+      ).toThrow("Invalid input");
+    });
+  });
+
   describe("unknown tool", () => {
     test("passes through args for unknown tool", () => {
       const args = { foo: "bar" };

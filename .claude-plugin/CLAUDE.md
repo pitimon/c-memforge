@@ -4,7 +4,7 @@ Persistent semantic memory for Claude Code, powered by the MemForge SaaS platfor
 
 ## MCP Tools Available
 
-This plugin provides 28 MCP tools for diagnostics, search, retrieval, curation, knowledge graph, skills, and cross-project memory:
+This plugin provides 30 MCP tools for diagnostics, search, retrieval, curation, knowledge graph, skills, session continuity, and cross-project memory:
 
 ### Diagnostic Tools
 - `mem_status` - Check config, connectivity, auth, and latency
@@ -51,6 +51,16 @@ All search tools support `offset` parameter for pagination.
 ### Data Tools
 - `mem_ingest` - Ingest observations into the server
 - `mem_workflow_suggest` - Suggest workflows based on context
+
+### Session Continuity Tools
+- `mem_handoff` - Write a session handoff (what's done, what's next, open loops) for cross-session continuity
+- `mem_resume` - Resume work: latest handoff + open loops + prior handoffs + latest retrospective for a project
+
+## Commands
+
+- `/forward` - Write a structured session handoff before ending/clearing (calls `mem_handoff`)
+- `/resume` - Resume work by pulling the latest handoff, open loops, and recent context (calls `mem_resume`)
+- `/retrospective` - Write a first-person session retrospective (AI Diary + Honest Feedback) into memforge (calls `mem_ingest`)
 
 ## Configuration
 
