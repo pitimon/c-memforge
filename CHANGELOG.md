@@ -5,6 +5,34 @@ All notable changes to the MemForge client plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.0] - 2026-07-06
+
+### Added
+
+- **`mem_handoff` / `mem_resume` MCP tools** for cross-session continuity
+  ([memforge#689](https://github.com/pitimon/memforge/issues/689)). `mem_handoff`
+  writes a structured session handoff (`project`, `next_steps`, optional `context`
+  and `open_loops`, optional `agent_id`/`agent_type`) via `POST /api/v1/handoff`.
+  `mem_resume` fetches the latest handoff, open loops, prior handoff history, and
+  the latest retrospective for a project via `GET /api/v1/resume`.
+- **`/forward`, `/resume`, `/retrospective` commands**
+  ([memforge#690](https://github.com/pitimon/memforge/issues/690)). `/forward`
+  writes a handoff at the end of a session; `/resume` pulls handoff history at the
+  start of the next one; `/retrospective` writes a first-person session
+  retrospective into memforge via `mem_ingest`, with a **mandatory AI Diary +
+  Honest Feedback** structure — the command refuses to submit if either section
+  is missing or empty.
+- New endpoint allowlist entries: `/api/v1/handoff`, `/api/v1/resume`.
+- New Zod input-validation schemas for `mem_handoff` and `mem_resume`.
+- `mem_resume` renders `latest_retrospective` per the pinned server shape
+  `{id, created_at, title, narrative}` (title + a <= 300 char narrative excerpt).
+
+### Requirements
+
+- Requires **memforge server >= v1.20.0** for the `/api/v1/handoff` and
+  `/api/v1/resume` endpoints. Using this client version against an older server
+  will fail with 404s on both new tools.
+
 ## [2.10.2] - 2026-06-13
 
 ### Documentation

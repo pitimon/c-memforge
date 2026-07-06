@@ -280,6 +280,21 @@ const schemas: Record<string, z.ZodType> = {
     project: z.string().max(200).optional(),
     limit: limitField(100, 20),
   }),
+
+  // Session handoff tools (memforge #74 — lifetime-memory Wave 2)
+  mem_handoff: z.object({
+    project: z.string().min(1).max(200),
+    next_steps: z.array(z.string().min(1).max(2000)).min(1).max(50),
+    context: z.string().max(20000).optional(),
+    open_loops: z.array(z.string().min(1).max(2000)).max(50).optional(),
+    agent_id: z.string().max(200).optional(),
+    agent_type: z.string().max(100).optional(),
+  }),
+
+  mem_resume: z.object({
+    project: z.string().min(1).max(200),
+    limit: limitField(50, 3),
+  }),
 };
 
 /**
