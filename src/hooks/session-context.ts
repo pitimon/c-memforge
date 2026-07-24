@@ -29,6 +29,13 @@ import {
   formatResume,
   type ResumeResponse,
 } from "../mcp/handlers/session-handlers";
+import {
+  appendMetric,
+  buildMetricRecord,
+  metricsEnabled,
+  resolveMetricsPath,
+  type MetricInput,
+} from "./metrics-logger";
 
 // ---------------------------------------------------------------------------
 // Pure helpers (unit-tested — see __tests__/session-context.test.ts)
@@ -155,71 +162,198 @@ function emitAndExit(additionalContext: string): never {
   process.exit(0);
 }
 
-async function main(): Promise<void> {
-  // Resolve project name first — needed even if everything else fails.
-  let project = process.env.MEMFORGE_PROJECT || "";
+/** Per-call timing wrapper — never rejects, so Promise.all stays simple. */
+async function timeCall<T>(
+  p: Promise<T>,
+): Promise<{ ok: boolean; value: T | null; ms: number }> {
+  const s = Date.now();
   try {
-    const raw = await readStdin();
-    const input = raw ? (JSON.parse(raw) as { cwd?: unknown }) : {};
-    if (!project) {
-      const cwd = typeof input.cwd === "string" ? input.cwd : process.cwd();
-      project = basename(cwd);
-    }
+    return { ok: true, value: await p, ms: Date.now() - s };
   } catch {
-    if (!project) project = basename(process.cwd());
+    return { ok: false, value: null, ms: Date.now() - s };
   }
+}
 
-  const cfg = resolveSessionContextConfig(process.env);
-  if (!cfg.enabled) emitAndExit("");
+/** Latency the fetch took, plus per-call ok flags — all gate signals. */
+interface FetchTimings {
+  resumeOk: boolean;
+  crossOk: boolean;
+  resumeMs: number;
+  crossMs: number;
+  totalMs: number;
+}
 
-  try {
-    initializeApiKey();
-    if (!isRemoteEnabled()) emitAndExit("");
+interface FetchResult {
+  resume: ResumeResponse | null;
+  cross: CrossProjectLite | null;
+  timings: FetchTimings;
+}
 
-    // Short timeouts + no retries: this hook blocks session start, so bound it.
-    // resume is the primary value and fast (~0.2s); cross-project is a graph
-    // traversal that can take ~2.3s for an often-empty result, so it gets a
-    // tighter leash — it must never dominate startup latency.
-    const [resumeR, crossR] = await Promise.allSettled([
+/**
+ * Fetch resume + cross-project with short, no-retry timeouts (this hook blocks
+ * session start, so it must be bounded). resume is the primary value and fast
+ * (~0.2s); cross-project is a graph traversal that can take ~2.3s for an often-
+ * empty result, so it gets a tighter 1.5s leash — it must never dominate startup.
+ */
+async function fetchContext(project: string): Promise<FetchResult> {
+  const fetchStart = Date.now();
+  const [resumeR, crossR] = await Promise.all([
+    timeCall(
       callRemoteAPI(
         "/api/v1/resume",
         { project, limit: 1 },
         { timeoutMs: 2500, maxRetries: 0 },
       ),
+    ),
+    timeCall(
       callRemoteAPI(
         "/context/cross-project",
         { project, limit: 3 },
         { timeoutMs: 1500, maxRetries: 0 },
       ),
-    ]);
+    ),
+  ]);
+  return {
+    resume: resumeR.ok ? (resumeR.value as ResumeResponse) : null,
+    cross: crossR.ok ? (crossR.value as CrossProjectLite) : null,
+    timings: {
+      resumeOk: resumeR.ok,
+      crossOk: crossR.ok,
+      resumeMs: resumeR.ms,
+      crossMs: crossR.ms,
+      totalMs: Date.now() - fetchStart,
+    },
+  };
+}
 
-    const resume =
-      resumeR.status === "fulfilled"
-        ? (resumeR.value as ResumeResponse)
-        : null;
-    const cross =
-      crossR.status === "fulfilled"
-        ? (crossR.value as CrossProjectLite)
-        : null;
+/** Assemble the telemetry input for a successful run (pure — `now` injected). */
+function runMetricInput(
+  project: string,
+  mode: "pointer" | "full",
+  additionalContext: string,
+  { resume, cross, timings }: FetchResult,
+  now: number,
+): MetricInput {
+  const handoff = resume && !resume.empty ? resume.latest_handoff : null;
+  return {
+    now,
+    project,
+    mode,
+    additionalContext,
+    hasHandoff: !!handoff,
+    handoffAgeDays: handoff ? ageInDays(handoff.created_at, now) : null,
+    openLoops: resume?.open_loops?.length || handoff?.open_loops?.length || 0,
+    nextSteps: handoff?.next_steps?.length ?? 0,
+    hasCrossProject: (cross?.suggestions?.length ?? 0) > 0,
+    ...timings,
+  };
+}
 
+/** Assemble the telemetry input for a failed run (pure — `now` injected). */
+function errorMetricInput(
+  project: string,
+  mode: "pointer" | "full",
+  now: number,
+  err: unknown,
+): MetricInput {
+  return {
+    now,
+    project,
+    mode,
+    additionalContext: "",
+    hasHandoff: false,
+    handoffAgeDays: null,
+    openLoops: 0,
+    nextSteps: 0,
+    hasCrossProject: false,
+    resumeOk: false,
+    crossOk: false,
+    resumeMs: 0,
+    crossMs: 0,
+    totalMs: 0,
+    error: (err as Error)?.message ?? String(err),
+  };
+}
+
+/** Compose the injected context: pointer, or (in "full" mode) pointer + detail. */
+export function composeContext(
+  project: string,
+  mode: "pointer" | "full",
+  pointer: string,
+  resume: ResumeResponse | null,
+): string {
+  // "full" mode (opt-in) appends the detailed resume block below the pointer,
+  // but only when there is real history — formatResume's empty-state text
+  // ("No handoff history… run mem_handoff") must never be auto-injected.
+  if (mode !== "full" || !resume || resume.empty) return pointer;
+  const detail = formatResume(project, resume);
+  return pointer ? `${pointer}\n\n${detail}` : detail;
+}
+
+/**
+ * Resolve the project name: MEMFORGE_PROJECT wins, else the basename of the
+ * hook payload's cwd, else process.cwd(). Always drains stdin; never throws.
+ */
+async function resolveProject(): Promise<string> {
+  const preset = process.env.MEMFORGE_PROJECT || "";
+  try {
+    const raw = await readStdin();
+    if (preset) return preset;
+    const input = raw ? (JSON.parse(raw) as { cwd?: unknown }) : {};
+    const cwd = typeof input.cwd === "string" ? input.cwd : process.cwd();
+    return basename(cwd);
+  } catch {
+    return preset || basename(process.cwd());
+  }
+}
+
+async function main(): Promise<void> {
+  const project = await resolveProject();
+  const cfg = resolveSessionContextConfig(process.env);
+  if (!cfg.enabled) emitAndExit("");
+
+  // Wave B gate telemetry (fail-open, kill switch MEMFORGE_METRICS=0). Resolved
+  // up front so both the success and catch paths can log a single JSONL line.
+  const collectMetrics = metricsEnabled(process.env);
+  const metricsPath = resolveMetricsPath(process.env);
+
+  try {
+    initializeApiKey();
+    if (!isRemoteEnabled()) emitAndExit("");
+
+    const result = await fetchContext(project);
+    const now = Date.now();
     const pointer = buildPointer(
       project,
-      resume,
-      cross,
-      Date.now(),
+      result.resume,
+      result.cross,
+      now,
       cfg.maxAgeDays,
     );
+    const additionalContext = composeContext(
+      project,
+      cfg.mode,
+      pointer,
+      result.resume,
+    );
 
-    // "full" mode (opt-in): append the detailed resume block below the pointer,
-    // but only when there is real history — formatResume's empty-state text
-    // ("No handoff history… run mem_handoff") must never be auto-injected.
-    if (cfg.mode === "full" && resume && !resume.empty) {
-      const detail = formatResume(project, resume);
-      emitAndExit(pointer ? `${pointer}\n\n${detail}` : detail);
+    if (collectMetrics) {
+      appendMetric(
+        buildMetricRecord(
+          runMetricInput(project, cfg.mode, additionalContext, result, now),
+        ),
+        metricsPath,
+      );
     }
 
-    emitAndExit(pointer);
+    emitAndExit(additionalContext);
   } catch (err) {
+    if (collectMetrics) {
+      appendMetric(
+        buildMetricRecord(errorMetricInput(project, cfg.mode, Date.now(), err)),
+        metricsPath,
+      );
+    }
     process.stderr.write(
       `[memforge] session-context hook failed (non-fatal): ${
         (err as Error)?.message ?? String(err)
