@@ -1,3 +1,17 @@
 {
-  "hooks": {}
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "_R=\"$CLAUDE_PLUGIN_ROOT\"; [ -f \"$_R/src/hooks/session-context.ts\" ] || _R=\"$(ls -dt \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/pitimon-c-memforge/memforge-client/\"[0-9]*/ 2>/dev/null | head -1)\"; _R=\"${_R%/}\"; [ -f \"$_R/src/hooks/session-context.ts\" ] || _R=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/marketplaces/pitimon-c-memforge\"; [ -f \"$_R/src/hooks/session-context.ts\" ] || exit 0; export PATH=\"$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH\"; command -v bun >/dev/null 2>&1 || exit 0; exec bun \"$_R/src/hooks/session-context.ts\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
 }
