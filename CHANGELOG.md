@@ -5,6 +5,43 @@ All notable changes to the MemForge client plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.0] - 2026-07-25
+
+### Added
+
+- **Wave C — `/forward` nudge on compact**
+  ([#79](https://github.com/pitimon/c-memforge/issues/79)). Wave A made the
+  *read* path automatic (a handoff pointer injected at session start), but the
+  *write* path stayed manual — the pointer is only as fresh as the last
+  hand-written `/forward`. Wave C closes that loop.
+  - **Why a nudge, not an auto-write**: a handoff's value is its LLM-written
+    `next_steps` / `open_loops` summary, and a shell hook has no LLM. So instead
+    of auto-writing a weak handoff, the hook nudges the *in-session model* — which
+    has full context — to run `/forward` itself and produce the real summary.
+  - **Channel**: reuses Wave A's proven SessionStart `additionalContext` path,
+    gated on `source === "compact"`. Deliberately *not* `PreCompact`, whose
+    model-visible injection is unconfirmed and which can block compaction.
+  - **Gated** on three conditions: the `waveCEnabled` kill switch (default true),
+    a compact-triggered session start, and a stale-or-missing handoff (a fresh
+    handoff already covers "worth preserving", so the nudge stays quiet).
+  - **Telemetry**: adds `nudge_emitted` to the existing metrics JSONL line (no new
+    file), so nudge → `mem_handoff` follow-through is measurable by joining hook
+    metrics with the MCP audit log.
+  - **Fail-open**, identical to the rest of the hook — the nudge path can never
+    throw or block a session.
+  - **Known gap (deferred)**: v1 covers compact events only. A session that ends
+    *without* compacting (user just closes the terminal) is not nudged —
+    SessionStart has no "about to end" trigger outside compaction/clear/startup.
+
+### Fixed
+
+- **`.codex-plugin/plugin.json` version drift** — the Codex plugin manifest was
+  left at `2.11.0` through the `2.12.0` and `2.13.0` releases (it had been bumped
+  in lockstep up to `2.11.0`, then missed). It is now realigned and part of the
+  release checklist: **four** manifests carry the version, not three
+  (`package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
+  `.codex-plugin/plugin.json`).
+
 ## [2.13.0] - 2026-07-24
 
 ### Added
