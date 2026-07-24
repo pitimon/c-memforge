@@ -3,5 +3,8 @@
   "serverUrl": "https://memclaude.thaicloud.ai",
   "syncEnabled": true,
   "pollInterval": 2000,
-  "role": "client"
+  "role": "client",
+  "sessionContextEnabled": true,
+  "sessionContextMode": "pointer",
+  "sessionContextMaxAgeDays": 30
 }

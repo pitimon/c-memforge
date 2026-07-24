@@ -43,6 +43,13 @@ interface PluginConfig {
   syncEnabled?: boolean;
   pollInterval?: number;
   role?: "client" | "admin";
+  // Proactive context hooks (#76). All optional — hooks apply their own defaults.
+  sessionContextEnabled?: boolean; // Wave A SessionStart hook (default: true)
+  sessionContextMode?: "pointer" | "full"; // default: "pointer"
+  sessionContextMaxAgeDays?: number; // hide handoffs older than this (default: 30)
+  promptContextEnabled?: boolean; // Wave B UserPromptSubmit RAG hook (default: false)
+  promptRelevanceThreshold?: number; // min score to inject (Wave B)
+  promptContextTimeoutMs?: number; // per-prompt search timeout (Wave B)
 }
 
 /**
@@ -70,6 +77,15 @@ function loadPluginConfig(): PluginConfig | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Public, fresh read of the plugin config (or null if absent/unparseable).
+ * Used by the context hooks to read their opt-in toggles without coupling to
+ * MCP-server startup. Fail-open: returns null on any error.
+ */
+export function getPluginConfig(): Readonly<PluginConfig> | null {
+  return loadPluginConfig();
 }
 
 /** Initialize API key from plugin config or fallback to claude-mem settings */
@@ -342,17 +358,29 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Per-call overrides for callRemoteAPI (all optional, backward-compatible) */
+export interface CallOptions {
+  /** Override the request timeout (ms). Default: search endpoints 60s, else 30s. */
+  timeoutMs?: number;
+  /** Override the max transient-error retries. Default: MAX_RETRIES (2). Use 0 for hooks. */
+  maxRetries?: number;
+}
+
 /**
  * Call Remote API with timeout and retry for transient errors.
  *
  * @param endpoint - Local endpoint name (e.g., '/search')
  * @param params - Query parameters
+ * @param opts - Optional per-call timeout/retry overrides (hooks pass a short
+ *   timeout + maxRetries:0 to bound wall-clock; existing callers omit this and
+ *   keep the original 30s/60s + 2-retry behavior).
  * @returns Promise resolving to API response data
  * @throws Error if remote not configured or API error
  */
 export async function callRemoteAPI(
   endpoint: string,
   params: Record<string, unknown>,
+  opts: CallOptions = {},
 ): Promise<unknown> {
   if (!isRemoteEnabled()) {
     throw new Error("Remote search not configured");
@@ -362,7 +390,9 @@ export async function callRemoteAPI(
   const isSearchEndpoint =
     ["/hybrid", "/vector", "/search"].includes(endpoint) ||
     endpoint.includes("/search");
-  const timeout = isSearchEndpoint ? SEARCH_TIMEOUT_MS : REMOTE_TIMEOUT_MS;
+  const timeout =
+    opts.timeoutMs ?? (isSearchEndpoint ? SEARCH_TIMEOUT_MS : REMOTE_TIMEOUT_MS);
+  const maxRetries = opts.maxRetries ?? MAX_RETRIES;
 
   const remoteEndpoint = resolveEndpoint(endpoint);
 
@@ -376,9 +406,13 @@ export async function callRemoteAPI(
   const url = `${remoteApiUrl}${remoteEndpoint}?${searchParams}`;
   let lastError: unknown;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (attempt > 0) {
-      await sleep(RETRY_DELAYS_MS[attempt - 1]);
+      // Clamp to the last known delay if maxRetries exceeds the delay table.
+      const delay =
+        RETRY_DELAYS_MS[attempt - 1] ??
+        RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+      await sleep(delay);
     }
 
     const controller = new AbortController();
@@ -397,7 +431,7 @@ export async function callRemoteAPI(
       return await response.json();
     } catch (error) {
       lastError = error;
-      if (!isRetryableError(error) || attempt === MAX_RETRIES) {
+      if (!isRetryableError(error) || attempt === maxRetries) {
         throw error;
       }
     } finally {

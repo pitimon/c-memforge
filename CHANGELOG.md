@@ -5,6 +5,37 @@ All notable changes to the MemForge client plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.12.0] - 2026-07-24
+
+### Added
+
+- **Proactive SessionStart context hook (Wave A)**
+  ([#76](https://github.com/pitimon/c-memforge/issues/76)). The plugin was
+  previously pull-only — server memory (handoff, open loops, cross-project)
+  surfaced only when an MCP tool was explicitly called. A new `SessionStart`
+  hook now injects a **compact pointer** at session start
+  (`Handoff #N (2d ago) · 3 open loops — run mem_resume for detail`) so that
+  continuity context is offered automatically. Reuses `callRemoteAPI` /
+  `formatResume`; adds `src/hooks/session-context.ts`.
+  - **Pointer mode (default)** injects counts + a hint, never the raw next-steps,
+    so a stale handoff cannot steer the model toward old work. Set
+    `sessionContextMode: "full"` to also inject the detailed resume block.
+  - **Fail-open**: any error / missing config / timeout → nothing injected,
+    exit 0. Never blocks or breaks a session.
+  - **Non-redundant with claude-mem**: injects the enrichment layer
+    (handoff / cross-project), never plain recent observations.
+  - Config: `sessionContextEnabled` (default `true`), `sessionContextMode`
+    (`"pointer"` | `"full"`, default `"pointer"`), `sessionContextMaxAgeDays`
+    (default `30`). Kill switch: `MEMFORGE_SESSION_CONTEXT=0`.
+  - Cross-project lookup gets a tighter 1.5s timeout so the graph traversal
+    never dominates session-start latency; resume gets 2.5s.
+
+### Changed
+
+- **`callRemoteAPI` accepts optional per-call `{ timeoutMs, maxRetries }`**
+  (backward-compatible — existing callers keep the 30s/60s + 2-retry defaults).
+  Hooks pass a short timeout + `maxRetries: 0` to bound wall-clock.
+
 ## [2.11.0] - 2026-07-06
 
 ### Added

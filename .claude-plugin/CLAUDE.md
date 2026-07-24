@@ -75,17 +75,32 @@ Set `"role": "admin"` in config to access admin features. Default is `"client"`.
 
 ## Sync (In-Process)
 
-Sync runs automatically inside the MCP server process — no separate daemon, hooks, or background processes.
+**Sync** runs automatically inside the MCP server process — no separate daemon or background process for syncing. (Context *retrieval* uses a read-only hook — see "Proactive Context Hooks" below; that is a separate concern from sync.)
 
 ### Architecture
 - `sync-poller.ts` - In-process polling of claude-mem SQLite (2s interval, configurable)
 - `remote-sync.ts` - HTTP sync via `POST /api/sync/push` with batch support
 - `pending-queue.ts` - In-memory retry queue (max 5 retries, lost on restart — server dedup handles overlap)
 
+## Proactive Context Hooks
+
+A read-only `SessionStart` hook (`src/hooks/session-context.ts`) injects a compact
+pointer to the latest handoff, open loops, and cross-project knowledge at session
+start, so server memory surfaces without an explicit `mem_search` / `mem_resume`
+call. Fail-open (any error → nothing injected, exit 0); pointer mode never injects
+raw next-steps (no stale-steering); non-redundant with claude-mem (which injects
+local recent observations).
+
+- Config (`~/.memforge/config.json`): `sessionContextEnabled` (default `true`),
+  `sessionContextMode` (`"pointer"` | `"full"`, default `"pointer"`),
+  `sessionContextMaxAgeDays` (default `30`).
+- Kill switch: `MEMFORGE_SESSION_CONTEXT=0`.
+
 ### Key Files
 | File | Purpose |
 |------|---------|
-| `~/.memforge/config.json` | Plugin configuration (API key, server URL, role, syncEnabled, pollInterval) |
+| `~/.memforge/config.json` | Plugin configuration (API key, server URL, role, syncEnabled, pollInterval, sessionContext*) |
+| `src/hooks/session-context.ts` | SessionStart context-injection hook (Wave A, #76) |
 
 ## Requirements
 
