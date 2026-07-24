@@ -16,6 +16,19 @@
  *    (the enrichment layer), never plain recent observations (claude-mem owns those).
  *  - process.exit(0) is explicit: an abandoned fetch keeps Bun's event loop alive
  *    up to the request timeout, so we must not rely on natural exit.
+ *
+ * Wave C (#79) — "/forward" nudge on compact:
+ *  - A handoff's value is its LLM-written next_steps/open_loops summary; a shell
+ *    hook has no LLM, so instead of auto-writing a handoff we NUDGE the in-session
+ *    model to run `/forward` itself (model-driven, produces the real summary).
+ *  - Reuses this SAME SessionStart channel (source === "compact") — the proven
+ *    additionalContext path Wave A already uses — rather than PreCompact, whose
+ *    injection is unconfirmed and can block compaction.
+ *  - v1 scope is compact events only. Session end WITHOUT a compact (e.g. the
+ *    user just closes the terminal) is a known gap, deferred — SessionStart has
+ *    no hook for "session is about to end" outside of compaction/clear/startup.
+ *  - Suppressed when a fresh handoff already exists (nothing new to preserve)
+ *    and gated by the `waveCEnabled` kill switch (default true).
  */
 
 import { basename } from "path";
@@ -132,6 +145,48 @@ export function buildPointer(
   );
 }
 
+/** The nudge text injected when a compact just happened and nothing fresh covers it. */
+export const FORWARD_NUDGE =
+  '💾 This session was compacted. If you made progress worth preserving, run **/forward** to persist next-steps & open-loops for the next session.';
+
+/** True when the latest handoff is missing or older than `maxAgeDays` (worth nudging). */
+export function isHandoffStaleOrMissing(
+  resume: ResumeResponse | null,
+  now: number,
+  maxAgeDays: number,
+): boolean {
+  const handoff = resume && !resume.empty ? resume.latest_handoff : null;
+  if (!handoff) return true;
+  const age = ageInDays(handoff.created_at, now);
+  const fresh = age === null || age <= maxAgeDays;
+  return !fresh;
+}
+
+/**
+ * Wave C (#79): build the "/forward" nudge, or "" when it should not fire.
+ * Gated on: source === "compact" (v1 scope — see file header), the kill switch,
+ * and staleness (a fresh handoff already covers "worth preserving").
+ */
+export function buildForwardNudge(
+  source: string,
+  resume: ResumeResponse | null,
+  now: number,
+  maxAgeDays: number,
+  waveCEnabled: boolean,
+): string {
+  if (!waveCEnabled) return "";
+  if (source !== "compact") return "";
+  if (!isHandoffStaleOrMissing(resume, now, maxAgeDays)) return "";
+  return FORWARD_NUDGE;
+}
+
+/** Resolve the Wave C kill switch from plugin config (default true). */
+export function resolveWaveCEnabled(
+  config: { waveCEnabled?: boolean } | null,
+): boolean {
+  return config?.waveCEnabled !== false;
+}
+
 // ---------------------------------------------------------------------------
 // I/O shell (validated by offline dry-run, not unit-tested)
 // ---------------------------------------------------------------------------
@@ -233,6 +288,7 @@ function runMetricInput(
   additionalContext: string,
   { resume, cross, timings }: FetchResult,
   now: number,
+  nudgeEmitted: boolean,
 ): MetricInput {
   const handoff = resume && !resume.empty ? resume.latest_handoff : null;
   return {
@@ -245,6 +301,7 @@ function runMetricInput(
     openLoops: resume?.open_loops?.length || handoff?.open_loops?.length || 0,
     nextSteps: handoff?.next_steps?.length ?? 0,
     hasCrossProject: (cross?.suggestions?.length ?? 0) > 0,
+    nudgeEmitted,
     ...timings,
   };
 }
@@ -290,27 +347,43 @@ export function composeContext(
   return pointer ? `${pointer}\n\n${detail}` : detail;
 }
 
+/** Project name + SessionStart trigger source, resolved from a single stdin drain. */
+interface SessionInput {
+  project: string;
+  source: string;
+}
+
 /**
- * Resolve the project name: MEMFORGE_PROJECT wins, else the basename of the
- * hook payload's cwd, else process.cwd(). Always drains stdin; never throws.
+ * Resolve the project name (MEMFORGE_PROJECT wins, else basename of the hook
+ * payload's cwd, else process.cwd()) and the SessionStart `source` field
+ * ("startup" | "clear" | "compact" | "resume", defaults to "startup" when
+ * missing/unparseable — matches the hooks.json default matcher). Stdin can
+ * only be read once, so project + source are resolved together. Always
+ * drains stdin; never throws.
  */
-async function resolveProject(): Promise<string> {
+async function resolveSessionInput(): Promise<SessionInput> {
   const preset = process.env.MEMFORGE_PROJECT || "";
   try {
     const raw = await readStdin();
-    if (preset) return preset;
-    const input = raw ? (JSON.parse(raw) as { cwd?: unknown }) : {};
+    const input = raw
+      ? (JSON.parse(raw) as { cwd?: unknown; source?: unknown })
+      : {};
     const cwd = typeof input.cwd === "string" ? input.cwd : process.cwd();
-    return basename(cwd);
+    const source = typeof input.source === "string" ? input.source : "startup";
+    return { project: preset || basename(cwd), source };
   } catch {
-    return preset || basename(process.cwd());
+    return { project: preset || basename(process.cwd()), source: "startup" };
   }
 }
 
 async function main(): Promise<void> {
-  const project = await resolveProject();
+  const { project, source } = await resolveSessionInput();
   const cfg = resolveSessionContextConfig(process.env);
   if (!cfg.enabled) emitAndExit("");
+
+  // Wave C (#79) kill switch — resolved alongside cfg, outside the try, same
+  // pattern as resolveSessionContextConfig (getPluginConfig() fails open to null).
+  const waveCEnabled = resolveWaveCEnabled(getPluginConfig());
 
   // Wave B gate telemetry (fail-open, kill switch MEMFORGE_METRICS=0). Resolved
   // up front so both the success and catch paths can log a single JSONL line.
@@ -330,17 +403,27 @@ async function main(): Promise<void> {
       now,
       cfg.maxAgeDays,
     );
-    const additionalContext = composeContext(
-      project,
-      cfg.mode,
-      pointer,
+    const composed = composeContext(project, cfg.mode, pointer, result.resume);
+    const nudge = buildForwardNudge(
+      source,
       result.resume,
+      now,
+      cfg.maxAgeDays,
+      waveCEnabled,
     );
+    const additionalContext = [composed, nudge].filter(Boolean).join("\n\n");
 
     if (collectMetrics) {
       appendMetric(
         buildMetricRecord(
-          runMetricInput(project, cfg.mode, additionalContext, result, now),
+          runMetricInput(
+            project,
+            cfg.mode,
+            additionalContext,
+            result,
+            now,
+            !!nudge,
+          ),
         ),
         metricsPath,
       );
