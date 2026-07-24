@@ -10,6 +10,9 @@
  * types fired (handoff / cross-project = the non-redundant-vs-claude-mem layer),
  * and fetch latency (validates the 2.5s/1.5s timeout budget).
  *
+ * Wave C (#79) adds `nudge_emitted`: whether the "/forward" nudge fired on a
+ * compact SessionStart — same JSONL line, no separate log file.
+ *
  * Contract: FAIL-OPEN, identical to the hook itself. Nothing here may throw,
  * block, or break a session — a telemetry failure is silently swallowed.
  * Kill switch: MEMFORGE_METRICS=0. Path override: MEMFORGE_METRICS_FILE.
@@ -37,6 +40,7 @@ export interface MetricRecord {
   resume_ms: number;
   cross_ms: number;
   total_ms: number;
+  nudge_emitted: boolean;
   error?: string;
 }
 
@@ -56,6 +60,7 @@ export interface MetricInput {
   resumeMs: number;
   crossMs: number;
   totalMs: number;
+  nudgeEmitted?: boolean; // Wave C (#79) — default false when omitted (error path)
   error?: string;
 }
 
@@ -79,6 +84,7 @@ export function buildMetricRecord(input: MetricInput): MetricRecord {
     resume_ms: input.resumeMs,
     cross_ms: input.crossMs,
     total_ms: input.totalMs,
+    nudge_emitted: input.nudgeEmitted ?? false,
   };
   if (input.error) rec.error = input.error.slice(0, 200);
   return rec;

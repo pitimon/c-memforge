@@ -50,6 +50,7 @@ interface PluginConfig {
   promptContextEnabled?: boolean; // Wave B UserPromptSubmit RAG hook (default: false)
   promptRelevanceThreshold?: number; // min score to inject (Wave B)
   promptContextTimeoutMs?: number; // per-prompt search timeout (Wave B)
+  waveCEnabled?: boolean; // Wave C "/forward" nudge on compact (default: true)
 }
 
 /**

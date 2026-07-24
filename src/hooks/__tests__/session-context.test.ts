@@ -11,9 +11,13 @@
 import { describe, test, expect } from "bun:test";
 import {
   ageInDays,
+  buildForwardNudge,
   buildPointer,
   composeContext,
+  FORWARD_NUDGE,
+  isHandoffStaleOrMissing,
   resolveSessionContextConfig,
+  resolveWaveCEnabled,
   type CrossProjectLite,
 } from "../session-context";
 import type { ResumeResponse } from "../../mcp/handlers/session-handlers";
@@ -151,6 +155,111 @@ describe("buildPointer", () => {
       },
     });
     expect(buildPointer("p", data, null, NOW, 30)).toContain("3 open loops");
+  });
+});
+
+describe("isHandoffStaleOrMissing", () => {
+  test("no handoff → stale (nothing covers 'worth preserving')", () => {
+    expect(isHandoffStaleOrMissing(resume({ empty: true }), NOW, 30)).toBe(
+      true,
+    );
+    expect(isHandoffStaleOrMissing(null, NOW, 30)).toBe(true);
+  });
+
+  test("handoff older than maxAgeDays → stale", () => {
+    const data = resume({
+      latest_handoff: {
+        id: 7,
+        project: "memforge",
+        next_steps: ["x"],
+        created_at: "2026-05-01T12:00:00Z", // ~84d old
+      },
+    });
+    expect(isHandoffStaleOrMissing(data, NOW, 30)).toBe(true);
+  });
+
+  test("fresh handoff → not stale", () => {
+    const data = resume({
+      latest_handoff: {
+        id: 99,
+        project: "memforge",
+        next_steps: ["a"],
+        created_at: "2026-07-22T12:00:00Z", // 2d old
+      },
+    });
+    expect(isHandoffStaleOrMissing(data, NOW, 30)).toBe(false);
+  });
+});
+
+describe("buildForwardNudge (Wave C #79)", () => {
+  test("source=compact + no handoff → nudge present", () => {
+    const out = buildForwardNudge(
+      "compact",
+      resume({ empty: true }),
+      NOW,
+      30,
+      true,
+    );
+    expect(out).toBe(FORWARD_NUDGE);
+    expect(out).toContain("/forward");
+  });
+
+  test("source=compact + stale handoff → nudge present", () => {
+    const data = resume({
+      latest_handoff: {
+        id: 7,
+        project: "memforge",
+        next_steps: ["x"],
+        created_at: "2026-05-01T12:00:00Z", // ~84d old
+      },
+    });
+    const out = buildForwardNudge("compact", data, NOW, 30, true);
+    expect(out).toBe(FORWARD_NUDGE);
+  });
+
+  test("source=compact + fresh handoff → no nudge (already covered)", () => {
+    const data = resume({
+      latest_handoff: {
+        id: 99,
+        project: "memforge",
+        next_steps: ["a"],
+        created_at: "2026-07-22T12:00:00Z", // 2d old
+      },
+    });
+    expect(buildForwardNudge("compact", data, NOW, 30, true)).toBe("");
+  });
+
+  test("source=startup → no nudge, even with no handoff", () => {
+    expect(
+      buildForwardNudge("startup", resume({ empty: true }), NOW, 30, true),
+    ).toBe("");
+  });
+
+  test("source=clear / resume → no nudge (v1 scope is compact only)", () => {
+    expect(
+      buildForwardNudge("clear", resume({ empty: true }), NOW, 30, true),
+    ).toBe("");
+    expect(
+      buildForwardNudge("resume", resume({ empty: true }), NOW, 30, true),
+    ).toBe("");
+  });
+
+  test("waveCEnabled=false → no nudge regardless of source/staleness", () => {
+    expect(
+      buildForwardNudge("compact", resume({ empty: true }), NOW, 30, false),
+    ).toBe("");
+  });
+});
+
+describe("resolveWaveCEnabled", () => {
+  test("defaults to true when config is null or field is absent", () => {
+    expect(resolveWaveCEnabled(null)).toBe(true);
+    expect(resolveWaveCEnabled({})).toBe(true);
+  });
+
+  test("false only when explicitly set false", () => {
+    expect(resolveWaveCEnabled({ waveCEnabled: false })).toBe(false);
+    expect(resolveWaveCEnabled({ waveCEnabled: true })).toBe(true);
   });
 });
 
