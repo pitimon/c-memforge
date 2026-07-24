@@ -12,6 +12,7 @@ import { describe, test, expect } from "bun:test";
 import {
   ageInDays,
   buildPointer,
+  composeContext,
   resolveSessionContextConfig,
   type CrossProjectLite,
 } from "../session-context";
@@ -38,6 +39,43 @@ describe("ageInDays", () => {
   test("returns null for missing / unparseable", () => {
     expect(ageInDays(undefined, NOW)).toBeNull();
     expect(ageInDays("not-a-date", NOW)).toBeNull();
+  });
+});
+
+describe("composeContext", () => {
+  test("pointer mode → returns the pointer unchanged", () => {
+    expect(
+      composeContext("memforge", "pointer", "PTR", resume({ empty: false })),
+    ).toBe("PTR");
+  });
+
+  test("full mode + empty resume → pointer only (never inject empty-state)", () => {
+    expect(
+      composeContext("memforge", "full", "PTR", resume({ empty: true })),
+    ).toBe("PTR");
+    expect(composeContext("memforge", "full", "PTR", null)).toBe("PTR");
+  });
+
+  test("full mode + real history → pointer + detail block", () => {
+    const out = composeContext(
+      "memforge",
+      "full",
+      "PTR",
+      resume({ latest_handoff: null, empty: false, open_loops: [] }),
+    );
+    expect(out.startsWith("PTR\n\n")).toBe(true);
+    expect(out.length).toBeGreaterThan("PTR\n\n".length);
+  });
+
+  test("full mode + real history + empty pointer → detail only (no leading blank)", () => {
+    const out = composeContext(
+      "memforge",
+      "full",
+      "",
+      resume({ empty: false }),
+    );
+    expect(out.startsWith("\n")).toBe(false);
+    expect(out.length).toBeGreaterThan(0);
   });
 });
 

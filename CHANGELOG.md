@@ -5,6 +5,30 @@ All notable changes to the MemForge client plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.13.0] - 2026-07-24
+
+### Added
+
+- **Wave A hook telemetry — Wave B go/no-go gate instrumentation**
+  ([#76](https://github.com/pitimon/c-memforge/issues/76)). Wave B (per-prompt
+  `UserPromptSubmit` RAG) is held behind a value-measurement gate: does the
+  Wave A pointer *alone* close the passive-memory gap? The SessionStart hook now
+  appends **one JSONL line per active run** so that question can be answered from
+  real sessions instead of guesswork. Adds `src/hooks/metrics-logger.ts` and
+  `scripts/wave-metrics-report.ts`.
+  - **Signals captured**: emission rate (`emitted`), injected token cost
+    (`chars` / `tokens_est`), which content types fired
+    (`has_handoff` / `has_cross_project` — the non-redundant-vs-claude-mem
+    layer), and fetch latency (`resume_ms` / `cross_ms` / `total_ms`, which
+    validates the 2.5s / 1.5s timeout budget).
+  - **Fail-open**, identical to the hook itself — a telemetry write failure is
+    silently swallowed and never blocks or breaks a session.
+  - **Kill switch** `MEMFORGE_METRICS=0`; path override `MEMFORGE_METRICS_FILE`
+    (default `~/.claude/c-memforge-metrics.jsonl`, honoring `CLAUDE_CONFIG_DIR`).
+  - Aggregate with `bun scripts/wave-metrics-report.ts` — prints emission rate,
+    token percentiles, content-type breakdown, and latency percentiles. The
+    behavioral "was the pointer useful" signal is a manual tally kept alongside.
+
 ## [2.12.0] - 2026-07-24
 
 ### Added
