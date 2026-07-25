@@ -37,3 +37,6 @@ coverage/
 
 # Bun
 bun.lockb
+
+# Multi-agent handoff scratchpad — local only, never committed
+CHANGES.log
