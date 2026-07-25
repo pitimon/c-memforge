@@ -1,6 +1,6 @@
 {
   "name": "memforge-client",
-  "version": "2.14.0",
+  "version": "2.14.1",
   "description": "MemForge client plugin for Codex and Claude Code - persistent semantic memory.",
   "author": {
     "name": "pitimon",
