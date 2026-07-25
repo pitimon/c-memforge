@@ -5,6 +5,38 @@ All notable changes to the MemForge client plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.1] - 2026-07-25
+
+### Fixed
+
+- **SessionStart hook could silently run an old — or hook-less — cached copy**
+  ([#81](https://github.com/pitimon/c-memforge/issues/81)). The resolver in
+  `.claude-plugin/hooks/hooks.json` picked the fallback plugin copy with
+  `ls -dt | head -1` — newest **mtime**, not newest version. Every previously
+  installed version stays in the cache, so anything that touched an old
+  directory (backup/restore tooling, `touch`, rsync) silently redirected the
+  hook to that older copy. All three failure modes were silent (exit 0, no log):
+  - resolving to `2.12.0`/`2.13.0` → the Wave C nudge never fires and
+    `nudge_emitted` is absent from telemetry;
+  - resolving to a pre-hook copy (`≤ 2.11.0`) → the `[ -f … ] || exit 0` guard
+    fires and **no context is injected at all**, silently disabling Wave A;
+  - worst of all, telemetry cannot reveal either case — a Wave B/C gate reading
+    would conclude "the nudge never fires" when the real cause is that the wrong
+    code ran.
+
+  The fallback now selects the highest **version** (`sort -V`, verified on both
+  macOS/BSD `sort` and GNU coreutils — plain `sort` ranks `2.9.0` above
+  `2.10.2`) and accepts only a copy that actually contains
+  `src/hooks/session-context.ts`, so legacy copies are skipped instead of
+  dead-ending. `$CLAUDE_PLUGIN_ROOT` remains the first preference; fail-open
+  behavior is unchanged.
+
+  Adds `src/hooks/__tests__/hook-resolver.test.ts` — six tests that execute the
+  *real* command string from `hooks.json` against throwaway cache fixtures
+  (semver-vs-lexical ordering, the touched-stale-copy regression, skipping
+  hook-less copies, empty cache, and `CLAUDE_PLUGIN_ROOT` precedence). Verified
+  to fail against the old resolver and pass against the new one.
+
 ## [2.14.0] - 2026-07-25
 
 ### Added
