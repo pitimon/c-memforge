@@ -1,0 +1,21 @@
+# Force textual diffs for source, regardless of content sniffing.
+#
+# Git decides binary-vs-text by looking for a NUL in the first 8000 bytes.
+# jsonl-parser.ts at HEAD held 4 raw NUL bytes in an 8052-byte blob: two are
+# the Map-key separators themselves (offsets 7260, 7365) and two are in the
+# comment that describes them (5708, 5745). The comment's — not the code's —
+# is the one inside the sniff window, so git reported "Binary files differ"
+# and suppressed the diff, making the file unreviewable in `git diff` and on
+# GitHub. This commit rewrites all four as `\0` escapes.
+#
+# The `diff` attribute alone fixes that. `text` is deliberately NOT set: it
+# would also impose EOL normalisation on checkin, which this change does not
+# need and which would rewrite line endings for any future contributor working
+# on CRLF. (HEAD currently has zero CRLF-committed files, so `text` would be a
+# no-op today — but it is a standing policy, not a fix, and does not belong in
+# a memory-bug PR.)
+*.ts diff
+*.tsx diff
+*.js diff
+*.json diff
+*.md diff
